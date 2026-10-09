@@ -1,0 +1,339 @@
+{
+  "seed_version": 1,
+  "products": [
+    {
+      "id": "product_blank",
+      "sku": "PW-BLANK",
+      "name": "Impeller blank",
+      "opening": 100,
+      "category": "components",
+      "baseline": {
+        "on_hand": 40,
+        "reserved": 0,
+        "free": 40
+      }
+    },
+    {
+      "id": "product_housing",
+      "sku": "PW-HOUSING",
+      "name": "Pump housing",
+      "opening": 100,
+      "category": "components",
+      "baseline": {
+        "on_hand": 86,
+        "reserved": 34,
+        "free": 52
+      }
+    },
+    {
+      "id": "product_motor",
+      "sku": "PW-MOTOR",
+      "name": "Electric motor",
+      "opening": 42,
+      "category": "components",
+      "baseline": {
+        "on_hand": 28,
+        "reserved": 28,
+        "free": 0
+      }
+    },
+    {
+      "id": "product_shaft",
+      "sku": "PW-SHAFT",
+      "name": "Pump shaft",
+      "opening": 100,
+      "category": "components",
+      "baseline": {
+        "on_hand": 86,
+        "reserved": 34,
+        "free": 52
+      }
+    },
+    {
+      "id": "product_bearing",
+      "sku": "PW-BEARING",
+      "name": "Bearing",
+      "opening": 200,
+      "category": "components",
+      "baseline": {
+        "on_hand": 172,
+        "reserved": 68,
+        "free": 104
+      }
+    },
+    {
+      "id": "product_seal",
+      "sku": "PW-SEAL",
+      "name": "Seal kit",
+      "opening": 100,
+      "category": "components",
+      "baseline": {
+        "on_hand": 86,
+        "reserved": 34,
+        "free": 52
+      }
+    },
+    {
+      "id": "product_fastener",
+      "sku": "PW-FASTENER",
+      "name": "Fastener kit",
+      "opening": 100,
+      "category": "components",
+      "baseline": {
+        "on_hand": 86,
+        "reserved": 34,
+        "free": 52
+      }
+    },
+    {
+      "id": "product_carton",
+      "sku": "PW-CARTON",
+      "name": "Shipping carton",
+      "opening": 100,
+      "category": "components",
+      "baseline": {
+        "on_hand": 86,
+        "reserved": 34,
+        "free": 52
+      }
+    },
+    {
+      "id": "product_impeller",
+      "sku": "PW-IMPELLER",
+      "name": "Machined impeller",
+      "opening": 0,
+      "category": "manufactured",
+      "baseline": {
+        "on_hand": 46,
+        "reserved": 34,
+        "free": 12
+      }
+    },
+    {
+      "id": "product_pump",
+      "sku": "PW-PUMP",
+      "name": "Finished pump",
+      "opening": 0,
+      "category": "manufactured",
+      "baseline": {
+        "on_hand": 14,
+        "reserved": 0,
+        "free": 14
+      }
+    }
+  ],
+  "centers": [
+    {
+      "id": "wc_machining",
+      "resource": "resource_machining",
+      "code": "MACH",
+      "name": "Machining"
+    },
+    {
+      "id": "wc_assembly",
+      "resource": "resource_assembly",
+      "code": "ASSY",
+      "name": "Assembly"
+    },
+    {
+      "id": "wc_inspection",
+      "resource": "resource_inspection",
+      "code": "INSP",
+      "name": "Inspection"
+    },
+    {
+      "id": "wc_packing",
+      "resource": "resource_packing",
+      "code": "PACK",
+      "name": "Packing"
+    }
+  ],
+  "operations": [
+    {
+      "id": "operation_machine",
+      "bom": "bom_impeller",
+      "name": "Machine impeller",
+      "center": "wc_machining",
+      "sequence": 10,
+      "minutes": 2,
+      "predecessor": null
+    },
+    {
+      "id": "operation_assemble",
+      "bom": "bom_pump",
+      "name": "Assemble pump",
+      "center": "wc_assembly",
+      "sequence": 10,
+      "minutes": 5,
+      "predecessor": null
+    },
+    {
+      "id": "operation_inspect",
+      "bom": "bom_pump",
+      "name": "Inspect pump",
+      "center": "wc_inspection",
+      "sequence": 20,
+      "minutes": 2,
+      "predecessor": "operation_assemble"
+    },
+    {
+      "id": "operation_pack",
+      "bom": "bom_pump",
+      "name": "Pack pump",
+      "center": "wc_packing",
+      "sequence": 30,
+      "minutes": 1,
+      "predecessor": "operation_inspect"
+    }
+  ],
+  "boms": [
+    {
+      "id": "bom_impeller",
+      "product": "product_impeller",
+      "lines": [
+        {
+          "id": "bom_impeller_blank",
+          "product": "product_blank",
+          "quantity": 1,
+          "operation": "operation_machine"
+        }
+      ]
+    },
+    {
+      "id": "bom_pump",
+      "product": "product_pump",
+      "lines": [
+        {
+          "id": "bom_pump_housing",
+          "product": "product_housing",
+          "quantity": 1,
+          "operation": "operation_assemble"
+        },
+        {
+          "id": "bom_pump_motor",
+          "product": "product_motor",
+          "quantity": 1,
+          "operation": "operation_assemble"
+        },
+        {
+          "id": "bom_pump_shaft",
+          "product": "product_shaft",
+          "quantity": 1,
+          "operation": "operation_assemble"
+        },
+        {
+          "id": "bom_pump_bearing",
+          "product": "product_bearing",
+          "quantity": 2,
+          "operation": "operation_assemble"
+        },
+        {
+          "id": "bom_pump_seal",
+          "product": "product_seal",
+          "quantity": 1,
+          "operation": "operation_assemble"
+        },
+        {
+          "id": "bom_pump_fastener",
+          "product": "product_fastener",
+          "quantity": 1,
+          "operation": "operation_assemble"
+        },
+        {
+          "id": "bom_pump_impeller",
+          "product": "product_impeller",
+          "quantity": 1,
+          "operation": "operation_assemble"
+        },
+        {
+          "id": "bom_pump_carton",
+          "product": "product_carton",
+          "quantity": 1,
+          "operation": "operation_pack"
+        }
+      ]
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "mo_impeller_done",
+      "origin": "FC-DEMO/IMPELLER-DONE",
+      "product": "product_impeller",
+      "initial_quantity": 60,
+      "start_hours": 0,
+      "deadline_hours": 1,
+      "state": "done",
+      "quantity": 60
+    },
+    {
+      "id": "mo_pump_done",
+      "origin": "FC-DEMO/PUMP-DONE",
+      "product": "product_pump",
+      "initial_quantity": 10,
+      "start_hours": 0,
+      "deadline_hours": 1,
+      "state": "done",
+      "quantity": 10
+    },
+    {
+      "id": "mo_partial_done",
+      "origin": "FC-DEMO/PARTIAL",
+      "product": "product_pump",
+      "initial_quantity": 10,
+      "start_hours": 0,
+      "deadline_hours": 4,
+      "state": "done",
+      "quantity": 4
+    },
+    {
+      "id": "mo_partial_backorder",
+      "origin": "FC-DEMO/PARTIAL",
+      "product": "product_pump",
+      "initial_quantity": 6,
+      "start_hours": 0,
+      "deadline_hours": 4,
+      "state": "confirmed",
+      "quantity": 6
+    },
+    {
+      "id": "mo_ready",
+      "origin": "FC-DEMO/READY",
+      "product": "product_pump",
+      "initial_quantity": 10,
+      "start_hours": 1,
+      "deadline_hours": 2,
+      "state": "confirmed",
+      "quantity": 10
+    },
+    {
+      "id": "mo_running",
+      "origin": "FC-DEMO/RUNNING",
+      "product": "product_pump",
+      "initial_quantity": 10,
+      "start_hours": 0,
+      "deadline_hours": 1,
+      "state": "progress",
+      "quantity": 10
+    },
+    {
+      "id": "mo_cancelled",
+      "origin": "FC-DEMO/CANCELLED",
+      "product": "product_pump",
+      "initial_quantity": 5,
+      "start_hours": 1,
+      "deadline_hours": 3,
+      "state": "cancel",
+      "quantity": 5
+    },
+    {
+      "id": "mo_shortage",
+      "origin": "FC-DEMO/SHORTAGE",
+      "product": "product_pump",
+      "initial_quantity": 8,
+      "start_hours": -2,
+      "deadline_hours": -1,
+      "state": "confirmed",
+      "quantity": 8
+    }
+  ]
+}

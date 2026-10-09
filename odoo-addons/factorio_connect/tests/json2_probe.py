@@ -47,7 +47,7 @@ def bootstrap(env):
     PROBE_FILE.write_text(json.dumps({'key': key, 'mo_id': mo.id, 'company_id': company.id}))
 
 
-def fetch():
+def fetch(validate=None):
     import psycopg2
     fixture = json.loads(PROBE_FILE.read_text())
     connection = psycopg2.connect(dbname='factorio_tests', user=os.environ['USER'],
@@ -79,11 +79,14 @@ def fetch():
     before = business_digest()
     snapshot = call('factorio.factory', 'get_snapshot', {'context': {'warehouse_id': -1, 'active_test': True}})
     assert snapshot['meta']['company_id'] == fixture['company_id']
-    assert len(snapshot['manufacturing_orders']) == 1
-    row = snapshot['manufacturing_orders'][0]
-    assert (row['requested_qty'], row['posted_qty']) == (10, 0)
-    assert len(snapshot['work_orders']) == 1
-    assert snapshot['material_demands'][0]['reserved_qty'] == 20
+    if validate is None:
+        assert len(snapshot['manufacturing_orders']) == 1
+        row = snapshot['manufacturing_orders'][0]
+        assert (row['requested_qty'], row['posted_qty']) == (10, 0)
+        assert len(snapshot['work_orders']) == 1
+        assert snapshot['material_demands'][0]['reserved_qty'] == 20
+    else:
+        validate(snapshot, fixture)
     assert before == business_digest(), 'JSON2 export changed business rows'
     try:
         call('mrp.production', 'write', {'ids': [fixture['mo_id']], 'vals': {'origin': 'forbidden'}})

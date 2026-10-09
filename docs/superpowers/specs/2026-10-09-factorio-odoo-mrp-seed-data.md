@@ -37,15 +37,19 @@ actionable error instead of silent duplication.
 | `location_production` | `stock.location` | Resolve the company's virtual production location; `usage=production` |
 | `location_inventory` | `stock.location` | Resolve the inventory-adjustment location used by opening adjustments; `usage=inventory` |
 | `manufacturing_type` | `stock.picking.type` | Warehouse manufacturing operation type; source/destination `PUMP/Stock`; one-step manufacturing; backorders `always` |
-| `uom_unit` | `uom.uom` | Alias standard Unit; quantity rounding 1; all products/BOMs/orders use it |
+| `uom_unit` | `uom.uom` | Alias standard Unit; native Product Unit decimal precision 0 gives quantum 1; all products/BOMs/orders use it |
 | `category_components` | `product.category` | `PumpWorks / Components`; standard default category configuration |
 | `category_manufactured` | `product.category` | `PumpWorks / Manufactured`; standard default category configuration |
 | `route_manufacture` | `stock.route` | Resolve warehouse Manufacture route; used only by the two manufactured products |
-| `calendar` | `resource.calendar` | `PumpWorks Day Shift`; timezone `Europe/Madrid`; company above |
+| `calendar` | `resource.calendar` | `PumpWorks Day Shift`; company above; local schedule interpreted in `Europe/Madrid` through company/resource timezones |
 
 Currency, units, virtual locations, the warehouse hierarchy, and the Manufacture
 route are normal Odoo prerequisites. Resolve their official defaults and validate
-relationships; do not seed competing copies. The integration snapshot includes
+relationships; do not seed competing copies. Odoo 20 installs the Manufacture
+route as warehouse-selectable and not product-selectable. During initial setup,
+make that same route product-selectable so the two manufactured products can
+carry the required route relation; preserve its existing manufacturing rules.
+The integration snapshot includes
 only internal locations under the selected warehouse. Virtual locations exist
 for posting production/inventory movements and are excluded from on-hand totals.
 
@@ -53,13 +57,22 @@ Enable work orders and operation dependencies. Use no Make To Order route,
 reordering rules, scheduled replenishment, alternative BOMs, variants, lots,
 serial numbers, or scrap. Consequently the runner, rather than procurement,
 creates the intended MOs. All seed products are stock-managed goods:
-`type='consu'`, `is_storable=True`, `tracking='none'`. Nominal standard costs are
+`type='consu'`, `is_storable=True`, `tracking=False` (native
+`store_by='quantity'`). Nominal standard costs are
 zero; this dataset makes no financial valuation claim.
+
+Odoo 20 has no `resource.calendar.tz` or `uom.uom.rounding` scalar. Set the
+company and each generated work-center resource's `tz` to `Europe/Madrid`; the
+calendar's intervals are local to those resources. Set the actual `Product Unit`
+decimal precision to 0 and reuse the standard Unit, giving exported quantity
+quantum 1.
 
 The calendar has exactly ten demo attendance records, IDs
 `attendance_mon_am`, `attendance_mon_pm`, through `attendance_fri_am` and
 `attendance_fri_pm`: weekdays Monday–Friday, 08:00–12:00 and 13:00–17:00 local
-time. No weekend attendance or holiday overrides are seeded.
+time. No weekend attendance or holiday overrides are seeded. Attendance records use
+their native day/hour inputs and computed display names; their stable XML IDs
+identify the intervals without a removed attendance `name` field.
 
 ## Users and integration configuration
 

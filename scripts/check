@@ -19,15 +19,15 @@ if [[ "$mode" == odoo ]]; then
   cleanup() { "${compose[@]}" down -v >/dev/null; }
   trap cleanup EXIT
   "${compose[@]}" up -d db
-  "${compose[@]}" run --rm odoo odoo -d factorio_tests -i factorio_connect --without-demo=True \
-    --test-enable --stop-after-init --test-tags "${2:-/factorio_connect}" --log-level=test
+  "${compose[@]}" run --rm odoo odoo -d factorio_tests -i factorio_connect,factorio_connect_demo --without-demo=True \
+    --test-enable --stop-after-init --test-tags "${2:-/factorio_connect,/factorio_connect_demo}" --log-level=test
   "${compose[@]}" run --rm -T odoo odoo shell -d factorio_tests --no-http <<'PYPROBE'
-from odoo.addons.factorio_connect.tests.json2_probe import bootstrap
+from odoo.addons.factorio_connect_demo.tests.json2_probe import bootstrap
 bootstrap(env)
 PYPROBE
   "${compose[@]}" up -d odoo
   probe_file=$(mktemp "$repo_root/runtime/odoo-json2-XXXXXX.json")
-  "${compose[@]}" exec -T odoo python3 /mnt/extra-addons/factorio_connect/tests/json2_probe.py > "$probe_file"
+  "${compose[@]}" exec -T odoo python3 /mnt/extra-addons/factorio_connect_demo/tests/json2_probe.py > "$probe_file"
   # Validate the actual HTTP response in the pinned bridge test environment.
   "$repo_root/scripts/check" bridge -q tests/test_contracts.py
   build_key=$(cat "$repo_root/deploy/Dockerfile.tests" "$repo_root/bridge/requirements-dev.lock" "$repo_root/deploy/versions.env" | sha256sum | cut -c1-20)

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+source "$repo_root/deploy/versions.env"
+export ODOO_IMAGE POSTGRES_IMAGE
+mode=${1:-seed}
+case "$mode" in
+  seed|--verify|--verify-baseline) ;;
+  *) echo 'Usage: ./scripts/seed-demo [--verify|--verify-baseline]' >&2; exit 2 ;;
+esac
+if [[ $# -gt 1 ]]; then echo 'Usage: ./scripts/seed-demo [--verify|--verify-baseline]' >&2; exit 2; fi
+# Credentials are supplied by the project bootstrap/environment; never fixture data.
+: "${POSTGRES_PASSWORD:?provide the demo database credential through bootstrap or environment}"
+docker compose -p factorio-connect -f "$repo_root/deploy/compose.yaml" exec -T -e "FACTORIO_SEED_MODE=$mode" odoo \
+  odoo shell -d factorio_demo --no-http <<'PY'
+import json
+import os
+from dataclasses import asdict
+from datetime import datetime, timezone
+from odoo.addons.factorio_connect_demo.seed.service import seed_demo, verify_demo
+if env.cr.dbname != 'factorio_demo':
+    raise RuntimeError('seed-demo targets only factorio_demo')
+mode = os.environ['FACTORIO_SEED_MODE']
+try:
+    if mode == 'seed':
+        report = seed_demo(env, now=datetime.now(timezone.utc))
+        env.cr.commit()
+    else:
+        env.cr.execute('SET TRANSACTION READ ONLY')
+        report = verify_demo(env, baseline=mode == '--verify-baseline')
+        env.cr.rollback()
+    print(json.dumps(asdict(report), sort_keys=True))
+except Exception:
+    env.cr.rollback()
+    raise
+PY
