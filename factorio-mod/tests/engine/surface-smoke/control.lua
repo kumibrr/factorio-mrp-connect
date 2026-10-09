@@ -4,6 +4,8 @@ local model=require('__factorio-connect__/scripts/view_model')
 local layout=require('__factorio-connect__/scripts/layout')
 local surface=require('__factorio-connect__/scripts/surface')
 local fixture=require('fixture')
+local wire=require('__factorio-connect__/scripts/wire_encode')
+local validation=require('__factorio-connect__/scripts/validation')
 local loaded,finished=false,false
 local function check()
   local current=state.get()
@@ -32,9 +34,24 @@ local function check()
   return {factorio_version=script.active_mods.base,stations=stations,belts=belts,renders=renders,
     assembly_running=view.centers[2].running_count,assembly_ready=view.centers[2].ready_count,
     inspection_waiting=view.centers[3].waiting_count,posted_pump_stock=view.stock[10][1].on_hand_qty,
-    save_load=loaded,gui_executed=false}
+    save_load=loaded,gui_executed=false,wire_json=storage.smoke_wire,
+    safe_integer_record_url=storage.smoke_safe_url,safe_integer_scope_valid=true}
 end
 script.on_init(function()
+  storage.smoke_wire=wire.encode({version=1,type='heartbeat_ack',token='quote" braces{} snowman ☃',
+    hello_nonce='engine-codec',session_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+    source_id='12345678-1234-5678-1234-567812345679',scope_id='company:1/warehouse:1',
+    sequence=9007199254740991},helpers.table_to_json)
+  assert(helpers.json_to_table(storage.smoke_wire).sequence==9007199254740991)
+  local boundary=helpers.json_to_table(fixture)
+  boundary.meta.company_id=9007199254740991
+  boundary.meta.scope_id='company:9007199254740991/warehouse:1'
+  assert(validation.validate(boundary))
+  local prior=boundary.manufacturing_orders[1].id
+  boundary.manufacturing_orders[1].id=9007199254740991
+  for _,wo in ipairs(boundary.work_orders) do if wo.mo_id==prior then wo.mo_id=9007199254740991 end end
+  storage.smoke_safe_url=model.build(boundary,{verified=false}).orders[9007199254740991].record_url
+  assert(storage.smoke_safe_url:find('/9007199254740991',1,true))
   state.init()
   local snapshot=helpers.json_to_table(fixture)
   assert(state.accept(snapshot,1))

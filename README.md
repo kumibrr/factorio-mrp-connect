@@ -35,8 +35,14 @@ bridge port 34200 as described in [local setup](docs/local-demo.md).
 - [Normative seed data](docs/superpowers/specs/2026-10-09-factorio-odoo-mrp-seed-data.md)
 
 Developer checks: `./scripts/check bridge`, `./scripts/check lua`,
-`./scripts/check odoo`, and `./scripts/check e2e -q tests/e2e`.
+`./scripts/check odoo`, `./scripts/check e2e`, and
+`./scripts/check factorio --binary /path/to/factorio-2.0.77`.
+The full e2e command creates and removes only labelled `factorio-connect-tests`
+resources; it requires free test ports 8169/8875/34300/34301.
 Setup tests and isolated backend provisioning are distinct from physical
 desktop/live-game acceptance. The current development host has rootless Docker
-and no licensed GUI client; the complete live pipeline remains Task9 acceptance
-work. Normal bootstrap rejects rootless Docker for the supported desktop path.
+and no licensed GUI client. Real isolated Odoo-to-bridge-to-production-Lua
+receiver checks are delivered,
+while physical desktop topology and single-player GUI acceptance remain
+unexecuted. See [verification evidence](docs/verification.md). Normal bootstrap
+rejects rootless Docker for the supported desktop path.

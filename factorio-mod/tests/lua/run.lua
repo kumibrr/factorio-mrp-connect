@@ -1,5 +1,5 @@
 package.path = '/repo/factorio-mod/?.lua;/repo/factorio-mod/tests/lua/?.lua;' .. package.path
-local suites = arg[1] and {arg[1]} or {'test_receiver', 'test_state', 'test_layout', 'test_view_model', 'test_surface', 'test_gui', 'test_control'}
+local suites = arg[1] and {arg[1]} or {'test_receiver', 'test_state', 'test_layout', 'test_view_model', 'test_surface', 'test_gui', 'test_control', 'test_wire_encode'}
 local passed, failed = 0, 0
 for _, name in ipairs(suites) do
   local cases = require(name)

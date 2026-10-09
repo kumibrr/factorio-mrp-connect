@@ -56,7 +56,8 @@ def rig(tmp_path, payload, fetch):
     return clock, published, store, RefreshCoordinator(fetch, store, publish, clock)
 
 
-def test_bursts_debounce_but_do_not_starve(tmp_path, pumpworks_payload):
+def test_bursts_debounce_but_do_not_starve(tmp_path, pumpworks_payload, caplog):
+    caplog.set_level('INFO')
     async def scenario():
         starts = []
         async def fetch():
@@ -85,6 +86,7 @@ def test_bursts_debounce_but_do_not_starve(tmp_path, pumpworks_payload):
         assert starts[-1] <= 1.251
         await coordinator.stop()
     asyncio.run(scenario())
+    assert 'published_revision=1 source_read_at=2026-10-09T12:00:00+00:00' in caplog.text
 
 
 def test_changes_during_read_trigger_followup(tmp_path, pumpworks_payload):

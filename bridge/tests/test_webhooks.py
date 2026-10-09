@@ -54,7 +54,8 @@ def test_invalid_token_payload_and_oversize_never_schedule_reads(tmp_path, pumpw
     asyncio.run(scenario())
 
 
-def test_udp_lifecycle_reconnect_and_health_revisions(tmp_path, pumpworks_payload):
+def test_udp_lifecycle_reconnect_and_health_revisions(tmp_path, pumpworks_payload, caplog):
+    caplog.set_level('INFO')
     from factorio_bridge.udp import UdpDelivery
     from factorio_bridge.contracts import Snapshot
     import json
@@ -87,6 +88,7 @@ def test_udp_lifecycle_reconnect_and_health_revisions(tmp_path, pumpworks_payloa
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
                 health = (await client.get('/healthz')).json()
                 assert health['latest_revision'] == 1
+                assert health['source_read_at'] == '2026-10-09T12:00:00+00:00'
                 assert health['applied_revision'] is None
                 assert 'pairing-secret' not in str(health)
                 # Current exact ack can report applied only after all chunks sent.
@@ -106,3 +108,4 @@ def test_udp_lifecycle_reconnect_and_health_revisions(tmp_path, pumpworks_payloa
         assert delivery._transport is None
         assert delivery.session is None
     asyncio.run(scenario())
+    assert 'applied_revision=1 source_read_at=2026-10-09T12:00:00+00:00' in caplog.text

@@ -53,6 +53,7 @@ services:
       - path: ${FACTORIO_STATE_DIR:-../runtime}/bridge.env
         required: false
     environment:
+      FACTORIO_DATABASE: ${ODOO_DATABASE:-factorio_demo}
       FACTORIO_BIND_HOST: ${ODOO_GATEWAY:-172.28.0.1}
       FACTORIO_BIND_PORT: ${BRIDGE_HTTP_PORT:-8765}
       FACTORIO_UDP_PORT: ${BRIDGE_UDP_PORT:-34200}

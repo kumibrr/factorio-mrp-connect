@@ -248,3 +248,38 @@ def state_path(): return Path('/nonexistent/harmless-fixture')
         result = subprocess.run(['bash', '-c', wrapper + '\ndemo exec -T odoo harmless-child'], cwd=tmp_path, stdin=source, capture_output=True)
     assert result.returncode == 0, result.stderr
     assert result.stdout == business_input
+
+
+def test_database_guard_rejects_production_wrong_database(tmp_path):
+    from demo_common import database, private_write
+    with pytest.raises(ValueError, match='database'):
+        database({'ODOO_DATABASE': 'factorio_tests'})
+    with pytest.raises(ValueError, match='isolated'):
+        database({'FACTORIO_PROJECT': 'factorio-connect-tests', 'ODOO_DATABASE': 'factorio_tests'})
+    state = tmp_path / 'owned'
+    state.mkdir()
+    private_write(state / 'state-owner.json', json.dumps({'owner': 'factorio-connect-demo', 'project': 'factorio-connect-tests'}))
+    explicit = {'FACTORIO_PROJECT': 'factorio-connect-tests', 'ODOO_DATABASE': 'factorio_tests', 'FACTORIO_TEST_CONTEXT': 'factorio-connect-tests', 'FACTORIO_STATE_DIR': str(state)}
+    assert database(explicit) == 'factorio_tests'
+    assert database({}) == 'factorio_demo'
+    cli_env = dict(os.environ, FACTORIO_STATE_DIR=str(tmp_path / 'absent'), FACTORIO_PROJECT='factorio-connect', ODOO_DATABASE='factorio_tests', POSTGRES_PASSWORD='nonsecret-guard-probe')
+    result = subprocess.run([sys.executable, str(ROOT / 'scripts/seed-demo'), '--verify'], env=cli_env, capture_output=True, text=True)
+    assert result.returncode == 2
+    assert 'database must be factorio_demo in production' in result.stderr
+    with pytest.raises(ValueError, match='database'):
+        database(dict(explicit, FACTORIO_PROJECT='factorio-connect'))
+    with pytest.raises(ValueError, match='ownership'):
+        database(dict(explicit, FACTORIO_STATE_DIR=str(tmp_path / 'foreign')))
+
+
+def test_isolated_environment_retains_context_and_owned_credentials(tmp_path, monkeypatch):
+    from demo_common import environment, private_write
+    module = load_bootstrap()
+    monkeypatch.delenv('FACTORIO_PROJECT', raising=False)
+    state = module.prepare_state(tmp_path / 'isolated', project='factorio-connect-tests')
+    private_write(state / 'backend.compose.yaml', '{}')
+    env = environment(state, context={'FACTORIO_PROJECT': 'factorio-connect-tests', 'FACTORIO_TEST_CONTEXT': 'factorio-connect-tests', 'ODOO_DATABASE': 'factorio_tests'})
+    assert env['FACTORIO_PROJECT'] == env['FACTORIO_TEST_CONTEXT'] == 'factorio-connect-tests'
+    assert env['ODOO_DATABASE'] == 'factorio_tests'
+    assert env['POSTGRES_PASSWORD'] == (state / 'db-password').read_text().strip()
+    assert env['FACTORIO_COMPOSE_OVERRIDE'] == str(state / 'backend.compose.yaml')

@@ -106,7 +106,7 @@ local function validate(v,shape)
     local node=shapes[row] and shapes[row][name]
     return node and node.raw and decimal.parse(node.raw) or decimal.number(row[name])
   end
-  assert(v.meta.scope_id=='company:'..string.format('%.0f',v.meta.company_id)..'/warehouse:'..string.format('%.0f',v.meta.warehouse_id),'scope mismatch')
+  assert(v.meta.scope_id=='company:'..string.format('%d',v.meta.company_id)..'/warehouse:'..string.format('%d',v.meta.warehouse_id),'scope mismatch')
   local units,products,centers,mos,wos=index(v.units),index(v.products),index(v.work_centers),index(v.manufacturing_orders),index(v.work_orders)
   index(v.boms); index(v.material_demands)
   local function quantities(row,names)

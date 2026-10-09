@@ -197,6 +197,7 @@ class RefreshCoordinator:
                 self._failures = 0
                 try:
                     await self.publish(stored)
+                    _logger.info('published_revision=%d source_read_at=%s', stored.revision, stored.snapshot.meta.source_read_at.isoformat())
                 except Exception as error:
                     _logger.warning('Snapshot publication failed (%s)', type(error).__name__)
             finally:

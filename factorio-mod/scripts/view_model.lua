@@ -23,7 +23,7 @@ function M.number(value)
   else digits='0.'..string.rep('0',-d.power-#digits)..digits end
   return (d.sign<0 and '-' or '')..digits
 end
-local function id(value) return string.format('%.0f',value) end
+local function id(value) return string.format('%d',value) end
 local function index(rows) local out={};for _,row in ipairs(rows or {}) do out[row.id]=row end;return out end
 local function terminal(raw) return raw=='done' or raw=='cancel' end
 local function label(raw,known) return raw==nil and 'Unknown' or known[raw] or ('Unknown ('..M.plain(raw)..')') end

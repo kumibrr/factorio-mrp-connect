@@ -11,7 +11,7 @@ import re
 import socket
 import sys
 
-from demo_common import ROOT, OWNER, PROJECT, compose, environment, owned_targets, pins, private_write, run, state_path, test_project, verify_state
+from demo_common import ROOT, OWNER, PROJECT, compose, database, environment, owned_targets, pins, private_write, run, state_path, test_project, verify_state
 
 
 def validate_daemon(endpoint, security, os_type, *, backend_test=False):
@@ -128,6 +128,7 @@ def configure_backend(state, env):
 
 
 def provision(state, env, *, rotate=False, backend_test=False):
+    target_database = database(env)
     command = compose(env)
     configuration = state / 'odoo.conf'
     private_write(configuration, (ROOT / 'deploy/odoo.conf').read_text())
@@ -136,7 +137,7 @@ def provision(state, env, *, rotate=False, backend_test=False):
     run(command + ['up', '-d', '--wait', 'db'], environment=env)
     modules = ''
     if not (state / 'metadata.json').exists():
-        modules = run(command + ['run', '--rm', '-T', 'odoo', 'odoo', '-d', 'factorio_demo', '-i', 'factorio_connect,factorio_connect_demo', '--without-demo=True', '--stop-after-init'], environment=env, include_stderr=True)
+        modules = run(command + ['run', '--rm', '-T', 'odoo', 'odoo', '-d', target_database, '-i', 'factorio_connect,factorio_connect_demo', '--without-demo=True', '--stop-after-init'], environment=env, include_stderr=True)
     # Native warnings remain visible after applying the project's common redactor.
     sys.path.insert(0, str(ROOT / 'bridge/src'))
     from factorio_connect_common.redaction import RedactionFilter
@@ -150,11 +151,11 @@ def provision(state, env, *, rotate=False, backend_test=False):
     # Invoke the real seed CLI; it commits before this trusted provisioning phase.
     output = run([str(ROOT / 'scripts/seed-demo')], environment=env)
     print(redactor.redact(output).strip())
-    payload = {'admin_password': (state / 'admin-password').read_text().strip(), 'operator_password': (state / 'operator-password').read_text().strip(), 'webhook_token': (state / 'webhook-token').read_text().strip(), 'rotate': rotate, 'public_url': 'http://127.0.0.1:' + env.get('ODOO_HTTP_PORT','8069'), 'webhook_origin': 'http://' + env.get('FACTORIO_BACKEND_ADDRESS', env.get('ODOO_GATEWAY','172.28.0.1')) + ':' + env.get('BRIDGE_HTTP_PORT','8765')}
+    payload = {'database': target_database, 'test_context': env.get('FACTORIO_TEST_CONTEXT'), 'admin_password': (state / 'admin-password').read_text().strip(), 'operator_password': (state / 'operator-password').read_text().strip(), 'webhook_token': (state / 'webhook-token').read_text().strip(), 'rotate': rotate, 'public_url': 'http://127.0.0.1:' + env.get('ODOO_HTTP_PORT','8069'), 'webhook_origin': 'http://' + env.get('FACTORIO_BACKEND_ADDRESS', env.get('ODOO_GATEWAY','172.28.0.1')) + ':' + env.get('BRIDGE_HTTP_PORT','8765')}
     writer = "import sys,os; p='/var/lib/odoo/factorio-bootstrap-input.json'; f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600); os.write(f,sys.stdin.buffer.read()); os.close(f)"
     run(command + ['exec', '-T', 'odoo', 'python3', '-c', writer], environment=env, input=json.dumps(payload))
     helper = (ROOT / 'deploy/bootstrap_odoo.py').read_text()
-    run(command + ['exec', '-T', 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', 'factorio_demo', '--no-http'], environment=env, input=helper)
+    run(command + ['exec', '-T', 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', target_database, '--no-http'], environment=env, input=helper)
     result = json.loads(run(command + ['exec', '-T', 'odoo', 'cat', '/var/lib/odoo/factorio-bootstrap-result.json'], environment=env))
     secret = result.pop('api_key')
     private_write(state / 'api-key', secret + '\n')
@@ -163,7 +164,7 @@ def provision(state, env, *, rotate=False, backend_test=False):
     private_write(state / 'bridge.env', ''.join('FACTORIO_' + key + '=' + value + '\n' for key,value in values.items()))
     run(command + ['--profile', 'bridge', 'up', '-d', '--build', '--wait', 'bridge'], environment=env)
     if rotate:
-        run(command + ['exec', '-T', 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', 'factorio_demo', '--no-http'], environment=env, input=helper.replace("MODE = 'provision'", "MODE = 'revoke'"))
+        run(command + ['exec', '-T', 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', target_database, '--no-http'], environment=env, input=helper.replace("MODE = 'provision'", "MODE = 'revoke'"))
     print('Demo ready: ' + payload['public_url'] + '; seed committed; 14 automations enabled; bridge healthy')
     print('Credentials stored outside git: ' + str(state) + '; API key expires ' + result['key_expires'])
 
@@ -181,6 +182,8 @@ def main():
             return
         state = prepare_state(state_path(), project=env.get('FACTORIO_PROJECT', PROJECT))
         env = environment(state)
+        if args.backend_test and env.get('FACTORIO_PROJECT') == 'factorio-connect-tests':
+            env['FACTORIO_TEST_CONTEXT'] = 'factorio-connect-tests'
         provision(state, env, rotate=args.rotate_api_key, backend_test=args.backend_test)
     except (ValueError, RuntimeError, OSError, KeyError) as error:
         print('Bootstrap stopped: ' + str(error), file=sys.stderr)

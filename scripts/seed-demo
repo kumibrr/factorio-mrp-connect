@@ -4,7 +4,7 @@ import argparse
 import os
 import sys
 
-from demo_common import compose, environment, pins, run, state_path
+from demo_common import compose, database, environment, pins, run, state_path
 
 SHELL = '''
 import json
@@ -12,7 +12,10 @@ import os
 from dataclasses import asdict
 from datetime import datetime, timezone
 from odoo.addons.factorio_connect_demo.seed.service import seed_demo, verify_demo
-if env.cr.dbname != 'factorio_demo':
+target = os.environ.get('FACTORIO_SEED_DATABASE', 'factorio_demo')
+if target != 'factorio_demo' and (target != 'factorio_tests' or os.environ.get('FACTORIO_TEST_CONTEXT') != 'factorio-connect-tests'):
+    raise RuntimeError('isolated test context required')
+if env.cr.dbname != target:
     raise RuntimeError('seed-demo targets only factorio_demo')
 mode = os.environ['FACTORIO_SEED_MODE']
 try:
@@ -43,8 +46,9 @@ def main():
             raise ValueError('bootstrap first or provide local database credential')
         if (state / 'odoo.conf').exists():
             env['ODOO_CONFIG_FILE'] = str(state / 'odoo.conf')
+        target = database(env)
         mode = '--verify-baseline' if args.verify_baseline else '--verify' if args.verify else 'seed'
-        output = run(compose(env) + ['exec', '-T', '-e', 'FACTORIO_SEED_MODE=' + mode, 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', 'factorio_demo', '--no-http'], environment=env, input=SHELL)
+        output = run(compose(env) + ['exec', '-T', '-e', 'FACTORIO_SEED_MODE=' + mode, '-e', 'FACTORIO_SEED_DATABASE=' + target, '-e', 'FACTORIO_TEST_CONTEXT=' + env.get('FACTORIO_TEST_CONTEXT',''), 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', target, '--no-http'], environment=env, input=SHELL)
         print(output.strip())
     except (ValueError, RuntimeError, OSError) as error:
         print('Seed stopped: ' + str(error), file=sys.stderr)

@@ -7,13 +7,16 @@ from pathlib import Path
 MODE = 'provision'
 INPUT = Path('/var/lib/odoo/factorio-bootstrap-input.json')
 OUTPUT = Path('/var/lib/odoo/factorio-bootstrap-result.json')
-if env.cr.dbname != 'factorio_demo':
-    raise RuntimeError('bootstrap only targets the demo database')
+payload = json.loads(INPUT.read_text())
+target = payload.get('database', 'factorio_demo')
+if target != 'factorio_demo' and (target != 'factorio_tests' or payload.get('test_context') != 'factorio-connect-tests'):
+    raise RuntimeError('bootstrap requires explicit isolated test database context')
+if env.cr.dbname != target:
+    raise RuntimeError('bootstrap only targets the selected demo database')
 
 from odoo.addons.factorio_connect.models.automation import configure_automations
 from factorio_connect_common.redaction import install_redaction
 
-payload = json.loads(INPUT.read_text())
 install_redaction([payload['admin_password'], payload['operator_password'], payload['webhook_token']])
 bot = env.ref('factorio_connect_demo.integration_user')
 config = env.ref('factorio_connect_demo.integration_config')

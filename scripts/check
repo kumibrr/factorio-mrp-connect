@@ -4,6 +4,10 @@ repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 # This file contains only committed, nonsecret image/version pins.
 source "$repo_root/deploy/versions.env"
 mode=${1:-}
+if [[ "$mode" == factorio ]]; then
+  shift
+  exec "$repo_root/scripts/check-factorio-surface" "$@"
+fi
 if [[ "$mode" == odoo ]]; then
   shift
   mkdir -p "$repo_root/runtime"
@@ -49,7 +53,7 @@ PYPROBE
   exit
 fi
 if [[ "$mode" != bridge && "$mode" != lua && "$mode" != e2e ]]; then
-  echo 'Usage: ./scripts/check bridge [pytest-arguments...] | e2e [pytest-arguments...] | lua | odoo --tags TAGS' >&2
+  echo 'Usage: ./scripts/check bridge [pytest-arguments...] | e2e [pytest-arguments...] | lua | odoo --tags TAGS | factorio --binary PATH' >&2
   exit 2
 fi
 shift
@@ -72,9 +76,27 @@ if [[ "$mode" == e2e ]]; then
   unset ODOO_CONFIG_FILE
   docker compose -p factorio-connect --profile bridge -f "$repo_root/deploy/compose.yaml" config --format json > "$config_file"
   chmod 644 "$config_file"
+  smoke_runner=()
+  # Named setup/reset-only files are intentionally offline focused regressions.
+  # Default/full e2e and every live/outage selection freshly run native evidence.
+  offline_selection=false
+  full_selection=false
+  for selection in "$@"; do
+    case "$selection" in
+      tests/e2e/test_setup.py|tests/e2e/test_reset_contract.py) offline_selection=true ;;
+      tests/*) full_selection=true ;;
+    esac
+  done
+  if [[ "$offline_selection" == false || "$full_selection" == true ]]; then
+    smoke_file=$(mktemp "$repo_root/runtime/smoke-report-XXXXXX.json")
+    "$repo_root/scripts/smoke-demo" --isolated-test --output "$smoke_file"
+    chmod 644 "$smoke_file"  # Secret-free metadata, readable by the isolated pytest UID.
+    smoke_runner=(-e "FACTORIO_SMOKE_REPORT=/repo/runtime/$(basename "$smoke_file")")
+  fi
+  if [[ $# == 0 ]]; then set -- tests/e2e; fi
   set -- -p no:cacheprovider "$@"
-  runner=(--workdir /repo -e "FACTORIO_COMPOSE_CONFIG=/repo/runtime/$(basename "$config_file")")
+  runner=(--workdir /repo -e "FACTORIO_COMPOSE_CONFIG=/repo/runtime/$(basename "$config_file")" "${smoke_runner[@]}")
 fi
-if [[ "$mode" == lua ]]; then runner=(--entrypoint lua5.2); set -- /repo/factorio-mod/tests/lua/run.lua; fi
+if [[ "$mode" == lua ]]; then runner=(--entrypoint lua5.2); set -- /repo/factorio-mod/tests/lua/run.lua "$@"; fi
 docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m "${runner[@]}" \
   --user "$(id -u):$(id -g)" -v "$repo_root:/repo:ro" "$image_id" "$@"

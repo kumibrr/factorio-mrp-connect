@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+"""Read deployed acknowledgments, or explicitly run the isolated backend test."""
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import tempfile
+import time
+import urllib.request
+
+from demo_common import ROOT, OWNER, compose, environment, owned_targets, pins, run, verify_state
+
+PROJECT = 'factorio-connect-tests'
+
+
+def wait(predicate, seconds=35, *, transient=()):
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        try:
+            result = predicate()
+        except transient:
+            result = None
+        if result:
+            return result
+        time.sleep(.1)
+    raise RuntimeError('timed out awaiting live source/receiver evidence')
+
+
+def isolated(output):
+    # Never reuse a report or an existing seeded project. Verify all labels before
+    # mutation; discard only resources belonging to this exact test project.
+    output = output.resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    state = Path(tempfile.mkdtemp(prefix='factorio-connect-tests-'))
+    evidence = Path(tempfile.mkdtemp(prefix='live-smoke-', dir=output.parent))
+    env = dict(os.environ, **pins(), FACTORIO_PROJECT=PROJECT, FACTORIO_STATE_DIR=str(state),
+               FACTORIO_TEST_CONTEXT=PROJECT, ODOO_DATABASE='factorio_tests',
+               ODOO_SUBNET='172.29.0.0/24', ODOO_GATEWAY='172.29.0.1',
+               ODOO_HTTP_PORT='8169', BRIDGE_HTTP_PORT='8875', BRIDGE_UDP_PORT='34300', GAME_UDP_PORT='34301')
+    env.pop('FACTORIO_COMPOSE_OVERRIDE', None)
+    targets = owned_targets(PROJECT)
+    if targets:
+        raise RuntimeError('isolated test project already exists; refusing to reseed or discard an active run')
+    command = compose(env)
+    client = None
+    odoo = None
+    paused = False
+    report = {'passed': False, 'context': 'isolated-backend-test-lua-receiver', 'project': PROJECT,
+              'database': 'factorio_tests', 'started_at': datetime.now(timezone.utc).isoformat(),
+              'evidence_path': str(evidence), 'gui_executed': False, 'physical_desktop_topology_executed': False}
+    try:
+        print('Live test: provisioning isolated factorio-connect-tests / factorio_tests', file=sys.stderr, flush=True)
+        bootstrap = run([str(ROOT / 'scripts/bootstrap-demo'), '--backend-test'], environment=env, include_stderr=True)
+        (evidence / 'bootstrap.log').write_text(bootstrap)
+        env = environment(state, context=env)
+        env.update(ODOO_CONFIG_FILE=str(state / 'odoo.conf'))
+        command = compose(env)
+        verify_state(state, PROJECT)
+        owned_targets(PROJECT)
+        odoo = run(command + ['ps', '-q', 'odoo'], environment=env).strip()
+        key = hashlib.sha256(b''.join((ROOT / file).read_bytes() for file in ['deploy/Dockerfile.tests', 'bridge/requirements-dev.lock', 'deploy/versions.env'])).hexdigest()[:20]
+        image = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'factorio-connect-tests:' + key]).strip()
+        receiver_file = evidence / 'receiver.json'
+        client = run(['docker', 'run', '-d', '--network', 'container:' + odoo,
+                      '--label', 'io.factorio-connect.owner=' + OWNER, '--label', 'com.docker.compose.project=' + PROJECT,
+                      '--read-only', '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m',
+                      '-v', str(ROOT) + ':/repo:ro', '-v', str(state) + ':/state:ro', '-v', str(evidence) + ':/evidence',
+                      '--entrypoint', 'python', image, '/repo/tests/e2e/udp_client.py', '/state', '/evidence/receiver.json']).strip()
+
+        def receiver():
+            return json.loads(receiver_file.read_text()) if receiver_file.exists() else {}
+
+        def health():
+            code = "import json,os,urllib.request; print(urllib.request.urlopen('http://%s:%s/healthz' % (os.environ['FACTORIO_BIND_HOST'],os.environ['FACTORIO_BIND_PORT']),timeout=2).read().decode())"
+            return json.loads(run(command + ['exec', '-T', 'bridge', 'python', '-c', code], environment=env))
+
+        def logs():
+            return run(command + ['logs', '--no-color', 'bridge'], environment=env, include_stderr=True)
+
+        def receipts():
+            return sum('/odoo/events/' in line and '202 Accepted' in line for line in logs().splitlines())
+
+        def shell(code):
+            script = "import json,time\nfrom odoo import api\nassert env.cr.dbname == 'factorio_tests'\n" + code
+            text = run(command + ['exec', '-T', 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', 'factorio_tests', '--no-http'], environment=env, input=script, include_stderr=True)
+            (evidence / 'orm.log').open('a').write(text)
+            return json.loads(next(line.split('FC_LIVE ', 1)[1] for line in text.splitlines() if line.startswith('FC_LIVE ')))
+
+        def center(view):
+            return next(row['name'] for row in view['snapshot']['work_centers'] if row['id'] == ids['center'])
+
+        def applied_name(name):
+            view = receiver()
+            return view if view.get('snapshot') and center(view) == name else None
+
+        ids = shell("from dataclasses import asdict\nfrom odoo.addons.factorio_connect_demo.seed.service import verify_demo\nr=verify_demo(env,baseline=True)\nprint('FC_LIVE '+json.dumps({'seed':asdict(r),'center':env.ref('factorio_connect_demo.wc_assembly').id,'motor':env.ref('factorio_connect_demo.product_motor').id,'shortage':env.ref('factorio_connect_demo.mo_shortage').id}))\nenv.cr.rollback()")
+        report['seed'] = ids['seed']['invariants']
+        report['seed_counts'] = ids['seed']['counts']
+        wait(lambda: receiver().get('status', {}).get('verified'))
+        print('Live test: baseline accepted by production Lua; commit and rollback transactions', file=sys.stderr, flush=True)
+        before = receipts()
+        commit = shell("wc=env.ref('factorio_connect_demo.wc_assembly')\nwc.name='Assembly committed live'\nenv.flush_all()\nwith env.registry.cursor() as other:\n otherenv=api.Environment(other,env.uid,{})\n prior=otherenv['mrp.workcenter'].browse(wc.id).name\nstarted=time.time()\nenv.cr.commit()\nwith env.registry.cursor() as other:\n after=api.Environment(other,env.uid,{})['mrp.workcenter'].browse(wc.id).name\nprint('FC_LIVE '+json.dumps({'started':started,'distinct_transaction_before':prior,'distinct_transaction_after':after}))")
+        view = wait(lambda: applied_name('Assembly committed live'), 5)
+        h = wait(lambda: (h if (h := health())['applied_revision'] == view['revision'] else None), 5)
+        report.update(source_read_at=view['snapshot']['meta']['source_read_at'], published_revision=h['latest_revision'], applied_revision=h['applied_revision'], commit_delivery_seconds=view['received_at'] - commit['started'])
+        wait(lambda: receiver().get('status', {}).get('verified'), 8)
+        commit.update(applied_name=center(view), http_202_receipts=receipts() - before, verified=receiver()['status']['verified'])
+        report['commit'] = commit
+        before = receipts()
+        rollback = shell("wc=env.ref('factorio_connect_demo.wc_assembly')\nwc.name='Assembly rolled back live'\nenv.flush_all()\ntime.sleep(2)\nenv.cr.rollback()\nwith env.registry.cursor() as other:\n name=api.Environment(other,env.uid,{})['mrp.workcenter'].browse(wc.id).name\nprint('FC_LIVE '+json.dumps({'distinct_transaction_name':name}))")
+        time.sleep(1)
+        view = receiver()
+        rollback.update(applied_name=center(view), http_202_receipts=receipts() - before, rolled_back_name_seen=any('Assembly rolled back live' in row['center_names'] for row in view['history']))
+        report['rollback'] = rollback
+        print('Live test: suppressed native webhook and real 60-second reconciliation', file=sys.stderr, flush=True)
+        shell("from odoo.addons.factorio_connect.models.automation import MODELS\nrules=env['base.automation'].browse([env.ref('factorio_connect_demo.automation_'+key).id for key in MODELS])\nrules.write({'active':False})\nenv.cr.commit()\nprint('FC_LIVE '+json.dumps({'disabled':len(rules)}))")
+        before = receipts()
+        missed = shell("from odoo.addons.factorio_connect.models.automation import MODELS\nactive=sum(env.ref('factorio_connect_demo.automation_'+key).active for key in MODELS)\nassert active==0\nenv.ref('factorio_connect_demo.wc_assembly').name='Assembly reconciliation live'\nstarted=time.time()\nenv.cr.commit()\nprint('FC_LIVE '+json.dumps({'started':started,'rules_active_during_change':active}))")
+        view = wait(lambda: applied_name('Assembly reconciliation live'), 65)
+        missed.update(delivery_seconds=view['received_at'] - missed['started'], http_202_receipts=receipts() - before, applied_name=center(view))
+        restored = shell("from odoo.addons.factorio_connect.models.automation import MODELS\nrules=env['base.automation'].browse([env.ref('factorio_connect_demo.automation_'+key).id for key in MODELS])\nrules.write({'active':True})\nenv.cr.commit()\nprint('FC_LIVE '+json.dumps({'rules_active':sum(rules.mapped('active'))}))")
+        missed.update(restored)
+        report['missed_webhook'] = missed
+        print('Live test: genuine +6 motor inventory workflow and native reservation', file=sys.stderr, flush=True)
+
+        def demand(view):
+            return next(row for row in view['snapshot']['material_demands'] if row['mo_id'] == ids['shortage'] and row['product_id'] == ids['motor'])['unreserved_qty']
+
+        before_unreserved = demand(view)
+        stock = shell("product=env.ref('factorio_connect_demo.product_motor')\nlocation=env.ref('factorio_connect_demo.location_stock')\nquant=env['stock.quant'].search([('product_id','=',product.id),('location_id','=',location.id)])\nquant.ensure_one()\nquant.with_context(inventory_mode=True).inventory_quantity=quant.quantity+6\nresult=quant.action_apply_inventory()\nassert not isinstance(result,dict)\nenv.ref('factorio_connect_demo.mo_shortage').action_assign()\nstarted=time.time()\nenv.cr.commit()\nfrom odoo.addons.factorio_connect_demo.seed.service import verify_demo\nr=verify_demo(env,baseline=False)\nprint('FC_LIVE '+json.dumps({'started':started,'on_hand':r.invariants['motor_on_hand'],'reserved':r.invariants['motor_reserved'],'posted_pumps':r.invariants['posted_pumps']}))\nenv.cr.rollback()")
+        view = wait(lambda: (v if (v := receiver()).get('snapshot') and demand(v) == 0 else None), 5)
+        h = wait(lambda: (h if (h := health())['applied_revision'] == view['revision'] else None), 5)
+        stock.update(before_unreserved=before_unreserved, after_unreserved=demand(view), delivery_seconds=view['received_at'] - stock['started'], published_revision=h['latest_revision'], applied_revision=h['applied_revision'])
+        report['stock_adjustment'] = stock
+        print('Live test: bridge disconnection, paused Odoo namespace and persistent cache restart', file=sys.stderr, flush=True)
+        wait(lambda: receiver().get('status', {}).get('verified'))
+        view = receiver()
+        outage = {'method': 'docker pause/unpause labelled isolated Odoo container', 'before_revision': view['revision'], 'before_source_read_at': view['snapshot']['meta']['source_read_at']}
+        bridge = run(command + ['ps', '-q', 'bridge'], environment=env).strip()
+        run(command + ['stop', 'bridge'], environment=env)
+        wait(lambda: not receiver()['status']['connected'], 20)
+        outage['bridge_disconnected_observed'] = True
+        run(['docker', 'pause', odoo])
+        paused = True
+        run(['docker', 'start', bridge], environment=env)
+        wait(health, 10, transient=(RuntimeError,))
+        h = wait(lambda: (h if not (h := health())['source_ok'] and h['last_error'] else None), 25)
+        wait(lambda: receiver().get('status', {}).get('connected'), 15)
+        time.sleep(6)
+        view = receiver()
+        outage.update(source_ok_during_outage=h['source_ok'], cached_revision=h['latest_revision'], cached_source_read_at=view['snapshot']['meta']['source_read_at'], receiver_retained_revision=view['revision'], verified_during_outage=view['status']['verified'])
+        run(['docker', 'unpause', odoo])
+        paused = False
+        view = wait(lambda: (v if (v := receiver()).get('status', {}).get('verified') and v['revision'] > outage['before_revision'] else None), 55)
+        outage.update(verified_after_recovery=view['status']['verified'], recovered_revision=view['revision'], recovered_source_read_at=view['snapshot']['meta']['source_read_at'])
+        protocol_logs = logs()
+        secrets = [(state / name).read_text().strip() for name in ['api-key', 'webhook-token', 'pairing-token']]
+        outage['protocol_logs_tokenless'] = all(value not in protocol_logs for value in secrets)
+        outage['revision_timestamps_logged'] = all(label in protocol_logs for label in ('published_revision=', 'applied_revision=', 'source_read_at='))
+        (evidence / 'bridge.log').write_text(protocol_logs)
+        (evidence / 'final-health.json').write_text(json.dumps(health(), indent=2))
+        report['outages'] = outage
+        # The CLI and pytest consume the same independent acceptance assertions.
+        for name in ('test_live_pipeline', 'test_outages'):
+            spec = importlib.util.spec_from_file_location(name, ROOT / 'tests/e2e' / (name + '.py'))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            for key, case in vars(module).items():
+                if key.startswith('test_'):
+                    case(report)
+        report['passed'] = True
+    except Exception as error:
+        report['error'] = str(error)
+        if client:
+            (evidence / 'client.log').write_text(run(['docker', 'logs', client], include_stderr=True))
+        raise
+    finally:
+        report['finished_at'] = datetime.now(timezone.utc).isoformat()
+        output.write_text(json.dumps(report, indent=2) + '\n')
+        if paused:
+            run(['docker', 'unpause', odoo])
+        if client:
+            run(['docker', 'stop', client])
+            run(['docker', 'rm', client])
+        targets = owned_targets(PROJECT)
+        if targets and (state / 'state-owner.json').exists():
+            env = environment(state, context=env)
+            command = compose(env)
+            run(command + ['--profile', 'bridge', 'down', '-v'], environment=env)
+        shutil.rmtree(state)
+    print(json.dumps(report, indent=2))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--isolated-test', action='store_true', help='fresh labelled backend test; does not establish game GUI acceptance')
+    parser.add_argument('--output', type=Path, default=ROOT / 'runtime/smoke-report.json')
+    args = parser.parse_args()
+    if args.isolated_test:
+        isolated(args.output)
+    else:
+        url = 'http://' + os.environ.get('ODOO_GATEWAY', '172.28.0.1') + ':' + os.environ.get('BRIDGE_HTTP_PORT', '8765') + '/healthz'
+        with urllib.request.urlopen(url, timeout=3) as response:
+            health = json.load(response)
+        published, applied = health['latest_revision'], health['applied_revision']
+        print(json.dumps({'context': 'deployed-read-only-health', 'passed': health['source_ok'] and published is not None and published == applied,
+                          'source_read_at': health['source_read_at'], 'published_revision': published, 'applied_revision': applied,
+                          'commit_delivery_seconds': None, 'seed': None, 'health': health}))
+        if not (health['source_ok'] and published is not None and published == applied):
+            raise SystemExit(1)
+
+
+if __name__ == '__main__':
+    main()

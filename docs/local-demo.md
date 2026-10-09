@@ -92,8 +92,9 @@ curl --fail http://172.28.0.1:8765/healthz
 ./scripts/bootstrap-demo --rotate-api-key
 ```
 
-Health is secret-free: `source_ok=true`, a recent `last_success_at`, small
-`source_age_seconds`, and a snapshot `latest_revision` indicate successful
+Health is secret-free: `source_ok=true`, the snapshot’s original
+`source_read_at`, a recent bridge `last_success_at`, small `source_age_seconds`,
+and a snapshot `latest_revision` indicate successful
 source reads. `applied_revision` remains null until a game accepts a snapshot;
 HTTP/container health alone is not proof of live game delivery. Rotate before
 the stored `metadata.json` expiry. Rotation creates and stores a replacement

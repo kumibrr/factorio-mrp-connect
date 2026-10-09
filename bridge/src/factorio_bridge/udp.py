@@ -258,6 +258,7 @@ class UdpDelivery:
         elif message.type == 'snapshot_applied':
             if message.snapshot_id == session.snapshot_id and message.revision == session.revision and session.frames and session.next_index == len(session.frames) - 1:
                 session.accepted_revision = message.revision
+                logging.getLogger(__name__).info('applied_revision=%d source_read_at=%s', message.revision, self.latest.snapshot.meta.source_read_at.isoformat())
                 session.frames = []
                 session.pending.clear()
         elif message.type == 'heartbeat_ack':

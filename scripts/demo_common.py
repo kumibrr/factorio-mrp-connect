@@ -45,8 +45,8 @@ def verify_state(state, project):
         raise ValueError('state ownership does not match this demo project')
 
 
-def environment(state):
-    env = dict(os.environ, **pins())
+def environment(state, *, context=None):
+    env = dict(os.environ) | (context or {}) | pins()
     verify_state(state, env.get('FACTORIO_PROJECT', PROJECT))
     env['FACTORIO_STATE_DIR'] = str(state)
     env['POSTGRES_PASSWORD'] = (state / 'db-password').read_text().strip()
@@ -58,6 +58,18 @@ def environment(state):
 
 def test_project(project):
     return project == 'factorio-connect-tests' or project.startswith('factorio-connect-test-')
+
+
+def database(env):
+    value = env.get('ODOO_DATABASE', 'factorio_demo')
+    if value == 'factorio_demo':
+        return value
+    if value != 'factorio_tests' or env.get('FACTORIO_PROJECT') != 'factorio-connect-tests':
+        raise ValueError('database must be factorio_demo in production')
+    if env.get('FACTORIO_TEST_CONTEXT') != 'factorio-connect-tests':
+        raise ValueError('factorio_tests requires explicit isolated test context')
+    verify_state(Path(env.get('FACTORIO_STATE_DIR', '/nonexistent')), 'factorio-connect-tests')
+    return value
 
 
 def compose(env):

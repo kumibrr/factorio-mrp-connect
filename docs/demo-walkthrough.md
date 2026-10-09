@@ -165,3 +165,60 @@ recorded truth. Confirm that every station remains visible when idle and that
 unrelated entities are preserved. Use the confirmed Local re-pair action only
 when intentionally changing saved source authority; it clears tracked display
 and binding, never Odoo or unowned entities.
+
+## Single-player GUI acceptance record (requires the licensed client)
+
+These steps remain unexecuted on the development host. Use the packaged
+`dist/factorio-connect_0.1.0.zip`, a separate base-only Factorio 2.0.77 mod
+folder/save, the rootful deployment from local setup, and the private pairing
+settings. Launch with `--enable-lua-udp 34199`. Record real elapsed seconds,
+`source_read_at`, published/applied revisions, screenshots and the game log for
+each check; keep tokens out of evidence. `./scripts/smoke-demo` reads deployed
+health and the receiver's actual application acknowledgment without changing
+business data. It does not measure a new commit or verify seed invariants.
+
+1. Confirm ten products, two BOMs, four stations, eight MOs, 22 WOs, 14 posted
+   pumps and the six-motor warning. Select every station and inspect idle,
+   running, dependency-blocked and material-short records.
+2. Execute the finish/start commands above. Confirm the running Assembly's
+   operation output becomes 10, Inspection becomes ready, then ready Assembly
+   starts. Measure each healthy committed change reaching the unpaused game
+   within five seconds; posted pump stock stays 14.
+3. From a reset baseline, execute the +6 motor inventory adjustment and native
+   `action_assign`. Confirm on-hand/reserved 34/34 and the warning clears within
+   five seconds. Inspect the actual completed4/backorder6 split and matching
+   production group, without replacing them with one percentage.
+4. Run the missed-webhook command above; confirm the existing station renames
+   within 65 seconds and all 14 native rules are restored.
+5. Stop/restart the bridge and stop/restart Odoo as above. Confirm last truth
+   remains visible, transport disconnection and source failure are distinct,
+   source age advances past 90 seconds without renewing the cached timestamp,
+   and recovery resynchronizes before four current heartbeat sequences establish
+   health. Confirm the same source/scope binding survives.
+6. Pause the game while committing a source change. The paused screen remains
+   frozen; resume must resynchronize. Save, exit and load the same save twice;
+   require a new bridge challenge each time and no partial/old session apply.
+7. Rename Assembly using Odoo, archive it, then add a center in the configured
+   company. The renamed station retains its identity, the archived station
+   displays its archived state, and the new idle center gets a stable station.
+   Inspect unrelated Nauvis entities before/after. For an exact ORM alternative:
+
+   ```sh
+   demo_shell <<'PY'
+   center = env.ref('factorio_connect_demo.wc_assembly')
+   center.name = 'Assembly GUI acceptance'
+   env.cr.commit()
+   center.active = False
+   env.cr.commit()
+   env['mrp.workcenter'].create({'name': 'Added GUI center', 'company_id': center.company_id.id})
+   env.cr.commit()
+   PY
+   ```
+
+8. Remove game power/materials and alter game entities; confirm Odoo quantities,
+   stock and WO states do not change. Present an alternate source/scope binding
+   and require rejection until the deliberate Local re-pair action. Re-pair must
+   affect only mod-owned displays and saved binding.
+
+Capture pass/fail and timestamps for each step in `docs/verification.md`. Backend
+Lua/socket checks and headless surface checks do not replace this GUI record.

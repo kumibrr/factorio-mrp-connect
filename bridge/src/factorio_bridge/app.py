@@ -64,6 +64,7 @@ def create_app(settings, coordinator, delivery=None) -> FastAPI:
     async def health():
         return {**asdict(coordinator.health), 'dirty': coordinator.dirty,
                 'latest_revision': None if coordinator.latest is None else coordinator.latest.revision,
+                'source_read_at': None if coordinator.latest is None else coordinator.latest.snapshot.meta.source_read_at,
                 'applied_revision': None if delivery is None else delivery.applied_revision}
 
     return app

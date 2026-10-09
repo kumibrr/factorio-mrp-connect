@@ -26,7 +26,7 @@ local function order_detail(parent,row,history)
   local frame=parent.add{type='frame',direction='vertical'}
   label(frame,order.reference..' — '..order.product..' | MO '..order.state_label..' (raw '..vm.plain(order.raw_state)..')',history and vm.palette.idle or vm.palette.ready)
   label(frame,order.quantity_label);label(frame,order.dates_label);label(frame,order.readiness_label)
-  label(frame,'WO '..string.format('%.0f',op.id)..' | Operation '..string.format('%.0f',op.operation_id)..' | '..op.state_label..' (raw '..vm.plain(op.raw_state)..')')
+  label(frame,'WO '..string.format('%d',op.id)..' | Operation '..string.format('%d',op.operation_id)..' | '..op.state_label..' (raw '..vm.plain(op.raw_state)..')')
   progress(frame,op.quantity_ratio,'Operation quantity: '..op.quantity_label,history and vm.palette.idle or vm.palette.running)
   progress(frame,op.time_ratio,'Operation time: '..op.time_label,vm.palette.ready)
   label(frame,'Predecessors: '..op.dependency_label,op.raw_state=='blocked' and vm.palette.attention or vm.palette.idle)
@@ -34,13 +34,13 @@ local function order_detail(parent,row,history)
   if #order.materials==0 then label(frame,'Material evidence unavailable') end
   for _,material in ipairs(order.materials) do label(frame,material.label,material.warning and vm.palette.attention or vm.palette.idle) end
   if #order.siblings>1 then
-    label(frame,'Source group '..string.format('%.0f',order.group_id)..' siblings (separate MOs)',vm.palette.idle)
+    label(frame,'Source group '..string.format('%d',order.group_id)..' siblings (separate MOs)',vm.palette.idle)
     for _,sibling in ipairs(order.siblings) do
       label(frame,sibling.reference..' | '..(sibling.terminal and sibling.state_label or 'Outstanding')..' | '..sibling.product..' | '..sibling.quantity_label..' | Backorder sequence '..vm.number(sibling.backorder_sequence))
     end
   end
   label(frame,'Odoo record URL — select and copy into your browser')
-  local field=frame.add{type='textfield',name='fc_record_'..string.format('%.0f',op.id),text=order.record_url,tags={fc_record=true}}
+  local field=frame.add{type='textfield',name='fc_record_'..string.format('%d',op.id),text=order.record_url,tags={fc_record=true}}
   field.read_only=true;field.style.width=800
 end
 function M.show(player,view,center_id)
@@ -61,7 +61,7 @@ function M.show(player,view,center_id)
   scroll.style.maximal_height=600;scroll.style.minimal_width=900
   local centers=scroll.add{type='flow',direction='horizontal'}
   for _,key in ipairs(view.center_ids) do
-    centers.add{type='button',name='fc_center_'..string.format('%.0f',key),caption=view.centers[key].display_name,tags={fc_center_id=key}}
+    centers.add{type='button',name='fc_center_'..string.format('%d',key),caption=view.centers[key].display_name,tags={fc_center_id=key}}
   end
   local center=view.centers[center_id]
   if center then

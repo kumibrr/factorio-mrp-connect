@@ -2,6 +2,7 @@
 local receiver=require('scripts.receiver')
 local state=require('scripts.state')
 local json_shape=require('scripts.json_shape')
+local wire_encode=require('scripts.wire_encode')
 local view_model=require('scripts.view_model')
 local layout=require('scripts.layout')
 local surface=require('scripts.surface')
@@ -41,7 +42,7 @@ local function connect()
     binding=current and current.source_id and {source_id=current.source_id,scope_id=current.scope_id} or nil}, {
     decode=function(text) return helpers.json_to_table(text) end,
     send=function(row)
-      local ok,text=pcall(helpers.table_to_json,row)
+      local ok,text=pcall(wire_encode.encode,row,helpers.table_to_json)
       if ok and type(text)=='string' and #text<=1024 then helpers.send_udp(settings.global['fc-bridge-port'].value,text) end
     end,
     apply=function(snapshot,revision,shape) return state.accept(snapshot,revision,shape) end
