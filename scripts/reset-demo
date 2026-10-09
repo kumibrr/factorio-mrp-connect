@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""Delete only explicitly confirmed, ownership-labelled project demo resources."""
+import argparse
+import os
+import sys
+
+from demo_common import PROJECT, compose, environment, owned_targets, pins, private_write, run, state_path
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, usage='./scripts/reset-demo --confirm factorio-connect-demo')
+    parser.add_argument('--confirm', required=True, choices=['factorio-connect-demo'])
+    args = parser.parse_args()
+    try:
+        state = state_path()
+        env = environment(state) if state.exists() else dict(os.environ, **pins(), POSTGRES_PASSWORD='unused-reset-only')
+        project = env.get('FACTORIO_PROJECT', PROJECT)
+        compose(env)  # Validate project identity before any resource enumeration.
+        targets = owned_targets(project)
+        # Inspection finishes for every target before any deletion starts.
+        for kind in ('container', 'network', 'volume'):
+            identifiers = [identifier for candidate, identifier in targets if candidate == kind]
+            if identifiers:
+                command = ['docker', 'rm', '-f', *identifiers] if kind == 'container' else ['docker', kind, 'rm', *identifiers]
+                run(command, environment=env)
+        # Retain operator passwords; rotate database binding and transport credentials.
+        for name in ('metadata.json', 'api-key', 'bridge.env'):
+            (state / name).unlink(missing_ok=True)
+        if state.exists():
+            import secrets
+            for name in ('webhook-token', 'pairing-token'):
+                private_write(state / name, 'factorio-' + secrets.token_urlsafe(32) + '\n')
+        print('Reset owned demo resources for ' + project + '; game saves untouched. Bootstrap and explicitly re-pair the mod.')
+    except (ValueError, RuntimeError, OSError) as error:
+        print('Reset stopped: ' + str(error), file=sys.stderr)
+        raise SystemExit(2) from None
+
+
+if __name__ == '__main__':
+    main()

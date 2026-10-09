@@ -1,18 +1,12 @@
-#!/usr/bin/env bash
-set -euo pipefail
-repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-source "$repo_root/deploy/versions.env"
-export ODOO_IMAGE POSTGRES_IMAGE
-mode=${1:-seed}
-case "$mode" in
-  seed|--verify|--verify-baseline) ;;
-  *) echo 'Usage: ./scripts/seed-demo [--verify|--verify-baseline]' >&2; exit 2 ;;
-esac
-if [[ $# -gt 1 ]]; then echo 'Usage: ./scripts/seed-demo [--verify|--verify-baseline]' >&2; exit 2; fi
-# Credentials are supplied by the project bootstrap/environment; never fixture data.
-: "${POSTGRES_PASSWORD:?provide the demo database credential through bootstrap or environment}"
-docker compose -p factorio-connect -f "$repo_root/deploy/compose.yaml" exec -T -e "FACTORIO_SEED_MODE=$mode" odoo \
-  odoo shell -d factorio_demo --no-http <<'PY'
+#!/usr/bin/env python3
+"""Seed/verify this project's demo using real workflow actions, never reset."""
+import argparse
+import os
+import sys
+
+from demo_common import compose, environment, pins, run, state_path
+
+SHELL = '''
 import json
 import os
 from dataclasses import asdict
@@ -33,4 +27,29 @@ try:
 except Exception:
     env.cr.rollback()
     raise
-PY
+'''
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--verify', action='store_true')
+    modes.add_argument('--verify-baseline', action='store_true')
+    args = parser.parse_args()
+    state = state_path()
+    try:
+        env = environment(state) if state.exists() else dict(os.environ, **pins())
+        if not env.get('POSTGRES_PASSWORD'):
+            raise ValueError('bootstrap first or provide local database credential')
+        if (state / 'odoo.conf').exists():
+            env['ODOO_CONFIG_FILE'] = str(state / 'odoo.conf')
+        mode = '--verify-baseline' if args.verify_baseline else '--verify' if args.verify else 'seed'
+        output = run(compose(env) + ['exec', '-T', '-e', 'FACTORIO_SEED_MODE=' + mode, 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', 'factorio_demo', '--no-http'], environment=env, input=SHELL)
+        print(output.strip())
+    except (ValueError, RuntimeError, OSError) as error:
+        print('Seed stopped: ' + str(error), file=sys.stderr)
+        raise SystemExit(2) from None
+
+
+if __name__ == '__main__':
+    main()

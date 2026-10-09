@@ -2,7 +2,7 @@
 import os
 from pathlib import Path
 from uuid import UUID
-from typing import Literal
+from ipaddress import IPv4Address
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
@@ -17,10 +17,18 @@ class Settings(BaseModel):
     source_id: UUID
     scope_id: str = Field(pattern=r'^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$')
     cache_path: Path = Path('/var/lib/factorio-bridge/cache.sqlite')
-    bind_host: Literal['172.28.0.1'] = '172.28.0.1'
+    bind_host: str = '172.28.0.1'
     udp_port: int = Field(default=34200, ge=1, le=65535)
     game_udp_port: int = Field(default=34199, ge=1, le=65535)
     bind_port: int = Field(default=8765, ge=1, le=65535)
+
+    @field_validator('bind_host')
+    @classmethod
+    def private_gateway(cls, value):
+        address = IPv4Address(value)
+        if not address.is_private or address.is_loopback or address.is_unspecified or address.is_link_local:
+            raise ValueError('HTTP bind must be a private IPv4 Docker gateway')
+        return str(address)
 
     @field_validator('api_key', 'webhook_token', 'pairing_token')
     @classmethod

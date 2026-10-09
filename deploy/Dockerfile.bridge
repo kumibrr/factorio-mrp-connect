@@ -1,12 +1,13 @@
 ARG PYTHON_IMAGE=python:3.12.12-slim-bookworm@sha256:593bd06efe90efa80dc4eee3948be7c0fde4134606dd40d8dd8dbcade98e669c
 FROM ${PYTHON_IMAGE}
-ENV PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_ROOT_USER_ACTION=ignore \
-    PYTHONPATH=/app/src
+ENV PYTHONDONTWRITEBYTECODE=1 PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_ROOT_USER_ACTION=ignore
 COPY bridge/requirements.lock /tmp/requirements.lock
-RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock \
-    && useradd --uid 10001 --create-home bridge \
-    && mkdir -p /var/lib/factorio-bridge \
-    && chown bridge:bridge /var/lib/factorio-bridge
-COPY bridge/src /app/src
+RUN python -m pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock
+COPY bridge/pyproject.toml bridge/requirements.in /opt/bridge/
+COPY bridge/src /opt/bridge/src
+# setuptools is supplied by a separately hash-locked install; no build isolation/network.
+RUN printf 'setuptools==80.9.0 --hash=sha256:062d34222ad13e0cc312a4c02d73f059e86a4acbfbdea8f8f76b28c99f306922 --hash=sha256:f36b47402ecde768dbfafc46e8e4207b4360c654f1f3bb84475f0a28628fb19c\n' > /tmp/build.lock && python -m pip install --no-cache-dir --require-hashes --no-deps -r /tmp/build.lock && python -m pip install --no-deps --no-build-isolation /opt/bridge
+RUN useradd --uid 10001 --create-home bridge && mkdir -p /var/lib/factorio-bridge && chown bridge:bridge /var/lib/factorio-bridge
 USER bridge
+WORKDIR /var/lib/factorio-bridge
 ENTRYPOINT ["python", "-m", "factorio_bridge"]

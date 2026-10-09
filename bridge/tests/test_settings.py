@@ -47,3 +47,13 @@ def test_private_gateway_http_binding_and_pairing_secret(tmp_path):
     values['pairing_token'] = 'bad / token'
     with pytest.raises(ValidationError):
         Settings.model_validate(values)
+
+
+def test_isolated_private_gateway_is_configurable(tmp_path):
+    values = settings(tmp_path).model_dump()
+    values['bind_host'] = '172.29.0.1'
+    assert Settings.model_validate(values).bind_host == '172.29.0.1'
+    for address in ['127.0.0.1', '8.8.8.8', 'localhost', '::1']:
+        values['bind_host'] = address
+        with pytest.raises(ValidationError):
+            Settings.model_validate(values)

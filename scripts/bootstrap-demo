@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Provision the local Linux demo without revealing or replacing existing secrets."""
+import argparse
+import ipaddress
+import json
+import os
+from pathlib import Path
+import platform
+import secrets
+import re
+import socket
+import sys
+
+from demo_common import ROOT, OWNER, PROJECT, compose, environment, owned_targets, pins, private_write, run, state_path, test_project, verify_state
+
+
+def validate_daemon(endpoint, security, os_type, *, backend_test=False):
+    if '/desktop/' in endpoint or 'docker-desktop' in endpoint:
+        raise ValueError('Docker Desktop cannot satisfy the local rootful Linux host topology')
+    if not endpoint.startswith('unix://') or os_type != 'linux':
+        raise ValueError('requires a local Linux Docker daemon on a Unix socket')
+    if any('rootless' in option for option in security) and not backend_test:
+        raise ValueError('requires local rootful Docker for desktop UDP; rootless is backend-test only')
+
+
+def prepare_state(state, *, project=PROJECT):
+    state = Path(state).resolve()
+    if state == ROOT or ROOT in state.parents:
+        raise ValueError('FACTORIO_STATE_DIR must be outside the checkout')
+    if state.exists() and any(state.iterdir()):
+        verify_state(state, project)
+    state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not (state / 'state-owner.json').exists():
+        private_write(state / 'state-owner.json', json.dumps({'owner': OWNER, 'project': project}) + '\n')
+    state.chmod(0o700)
+    for name in ('db-password', 'master-password', 'admin-password', 'operator-password', 'webhook-token', 'pairing-token'):
+        path = state / name
+        if path.is_symlink():
+            raise ValueError('secret path must not be a symlink')
+        if not path.exists():
+            value = os.environ.get('POSTGRES_PASSWORD') if name == 'db-password' else None
+            private_write(path, (value or ('factorio-' + secrets.token_urlsafe(32))) + '\n')
+        path.chmod(0o600)
+    for name in ('metadata.json', 'api-key', 'bridge.env'):
+        path = state / name
+        if path.exists():
+            if path.is_symlink():
+                raise ValueError('secret path must not be a symlink')
+            path.chmod(0o600)
+    return state
+
+
+def validate_versions(values):
+    for name, prefix in [('ODOO_IMAGE', 'odoo:20.0-'), ('POSTGRES_IMAGE','postgres:17.'), ('PYTHON_IMAGE','python:3.12.')]:
+        image = values.get(name, '')
+        if not image.startswith(prefix) or not re.search(r'@sha256:[a-f0-9]{64}$', image):
+            raise ValueError('runtime image pin requires the supported major and immutable digest: ' + name)
+
+
+def validate_compose_version(version):
+    match = re.match(r'^v?(\d+)\.(\d+)(?:\.(\d+))?', version.strip())
+    if not match or tuple(int(value or 0) for value in match.groups()) < (2, 24, 0):
+        raise ValueError('Docker Compose >=2.24.0 is required for optional env_file')
+
+
+def preflight(env, *, backend_test=False):
+    if platform.system() != 'Linux' or sys.version_info < (3, 10):
+        raise ValueError('requires Linux and host Python 3.10 or newer')
+    if platform.machine() not in ('x86_64', 'amd64'):
+        raise ValueError('pinned demo images require Linux x86_64')
+    validate_versions(pins())
+    context = run(['docker', 'context', 'inspect'])
+    endpoint = json.loads(context)[0]['Endpoints']['docker']['Host'] if os.environ.get('DOCKER_CONTEXT') else os.environ.get('DOCKER_HOST') or json.loads(context)[0]['Endpoints']['docker']['Host']
+    info = json.loads(run(['docker', 'info', '--format', '{{json .}}']))
+    if 'docker desktop' in info.get('OperatingSystem', '').lower() or info.get('Name') in ('docker-desktop','desktop-linux'):
+        raise ValueError('Docker Desktop cannot satisfy the local rootful Linux host topology')
+    validate_daemon(endpoint, info['SecurityOptions'], info['OSType'], backend_test=backend_test)
+    version = run(['docker', 'compose', 'version', '--short']).strip().lstrip('v')
+    validate_compose_version(version)
+    project = env.get('FACTORIO_PROJECT', PROJECT)
+    if backend_test and not test_project(project):
+        raise ValueError('backend-test mode requires an isolated factorio-connect-test-* project')
+    if not backend_test and (env.get('FACTORIO_COMPOSE_OVERRIDE') or (state_path() / 'backend.compose.yaml').exists()):
+        raise ValueError('backend test override requires explicit --backend-test')
+    owned_targets(project)  # Fail closed before mutation if anything is unlabelled.
+    network = ipaddress.ip_network(env.get('ODOO_SUBNET', '172.28.0.0/24'))
+    gateway = ipaddress.ip_address(env.get('ODOO_GATEWAY', '172.28.0.1'))
+    if not network.is_private or gateway not in network or gateway == network.network_address:
+        raise ValueError('gateway must belong to a private demo subnet')
+    networks = run(['docker', 'network', 'ls', '-q']).split()
+    if networks:
+        for item in json.loads(run(['docker', 'network', 'inspect', *networks])):
+            if (item.get('Labels') or {}).get('com.docker.compose.project') == project:
+                continue
+            for config in (item.get('IPAM', {}).get('Config') or []):
+                subnet = config.get('Subnet')
+                if subnet and ipaddress.ip_network(subnet).version == network.version and network.overlaps(ipaddress.ip_network(subnet)):
+                    raise ValueError('demo subnet overlaps an existing Docker network')
+    existing = run(['docker', 'ps', '-q', '--filter', 'label=com.docker.compose.project=' + project]).split()
+    if not existing:
+        for name, default, protocol in [('ODOO_HTTP_PORT',8069,socket.SOCK_STREAM), ('BRIDGE_HTTP_PORT',8765,socket.SOCK_STREAM), ('BRIDGE_UDP_PORT',34200,socket.SOCK_DGRAM), ('GAME_UDP_PORT',34199,socket.SOCK_DGRAM)]:
+            port = int(env.get(name, default))
+            if not 1 <= port <= 65535:
+                raise ValueError('invalid demo port')
+            with socket.socket(socket.AF_INET, protocol) as probe:
+                try:
+                    probe.bind(('0.0.0.0', port))
+                except OSError as error:
+                    raise ValueError('demo port is occupied: ' + str(port)) from error
+    print('Preflight: local Linux daemon, Compose >=2.24.0, ownership, subnet and ports checked')
+
+
+def configure_backend(state, env):
+    if not test_project(env.get('FACTORIO_PROJECT', PROJECT)):
+        raise ValueError('backend adapter requires an isolated test project')
+    container = run(compose(env) + ['ps', '-q', 'odoo'], environment=env).strip()
+    item = json.loads(run(['docker', 'inspect', container], environment=env))[0]
+    network_name = env['FACTORIO_PROJECT'] + '_default'
+    address = item['NetworkSettings']['Networks'][network_name]['IPAddress']
+    if not ipaddress.ip_address(address).is_private:
+        raise ValueError('isolated Odoo test namespace must have a private address')
+    override = {'services': {'bridge': {'network_mode': 'service:odoo', 'environment': {'FACTORIO_BIND_HOST': address, 'FACTORIO_ODOO_BASE_URL': 'http://127.0.0.1:8069'}}}}
+    path = state / 'backend.compose.yaml'
+    private_write(path, json.dumps(override) + '\n')
+    env['FACTORIO_COMPOSE_OVERRIDE'] = str(path)
+    env['FACTORIO_BACKEND_ADDRESS'] = address
+    print('Backend test only: bridge shares the isolated Odoo network namespace; desktop topology unverified')
+
+
+def provision(state, env, *, rotate=False, backend_test=False):
+    command = compose(env)
+    configuration = state / 'odoo.conf'
+    private_write(configuration, (ROOT / 'deploy/odoo.conf').read_text())
+    configuration.chmod(0o644)  # Contains no credentials; Odoo uid100 must read it.
+    env['ODOO_CONFIG_FILE'] = str(configuration)
+    run(command + ['up', '-d', '--wait', 'db'], environment=env)
+    modules = ''
+    if not (state / 'metadata.json').exists():
+        modules = run(command + ['run', '--rm', '-T', 'odoo', 'odoo', '-d', 'factorio_demo', '-i', 'factorio_connect,factorio_connect_demo', '--without-demo=True', '--stop-after-init'], environment=env, include_stderr=True)
+    # Native warnings remain visible after applying the project's common redactor.
+    sys.path.insert(0, str(ROOT / 'bridge/src'))
+    from factorio_connect_common.redaction import RedactionFilter
+    redactor = RedactionFilter([p.read_text().strip() for p in state.iterdir() if p.is_file() and p.name.endswith(('password','token'))])
+    if modules.strip():
+        print(redactor.redact(modules).strip())
+    run(command + ['up', '-d', '--wait', 'odoo'], environment=env)
+    if backend_test:
+        configure_backend(state, env)
+        command = compose(env)
+    # Invoke the real seed CLI; it commits before this trusted provisioning phase.
+    output = run([str(ROOT / 'scripts/seed-demo')], environment=env)
+    print(redactor.redact(output).strip())
+    payload = {'admin_password': (state / 'admin-password').read_text().strip(), 'operator_password': (state / 'operator-password').read_text().strip(), 'webhook_token': (state / 'webhook-token').read_text().strip(), 'rotate': rotate, 'public_url': 'http://127.0.0.1:' + env.get('ODOO_HTTP_PORT','8069'), 'webhook_origin': 'http://' + env.get('FACTORIO_BACKEND_ADDRESS', env.get('ODOO_GATEWAY','172.28.0.1')) + ':' + env.get('BRIDGE_HTTP_PORT','8765')}
+    writer = "import sys,os; p='/var/lib/odoo/factorio-bootstrap-input.json'; f=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600); os.write(f,sys.stdin.buffer.read()); os.close(f)"
+    run(command + ['exec', '-T', 'odoo', 'python3', '-c', writer], environment=env, input=json.dumps(payload))
+    helper = (ROOT / 'deploy/bootstrap_odoo.py').read_text()
+    run(command + ['exec', '-T', 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', 'factorio_demo', '--no-http'], environment=env, input=helper)
+    result = json.loads(run(command + ['exec', '-T', 'odoo', 'cat', '/var/lib/odoo/factorio-bootstrap-result.json'], environment=env))
+    secret = result.pop('api_key')
+    private_write(state / 'api-key', secret + '\n')
+    private_write(state / 'metadata.json', json.dumps(result, sort_keys=True) + '\n')
+    values = {'API_KEY': secret, 'WEBHOOK_TOKEN': payload['webhook_token'], 'PAIRING_TOKEN': (state / 'pairing-token').read_text().strip(), 'SOURCE_ID': result['source_id'], 'SCOPE_ID': result['scope_id']}
+    private_write(state / 'bridge.env', ''.join('FACTORIO_' + key + '=' + value + '\n' for key,value in values.items()))
+    run(command + ['--profile', 'bridge', 'up', '-d', '--build', '--wait', 'bridge'], environment=env)
+    if rotate:
+        run(command + ['exec', '-T', 'odoo', '/entrypoint.sh', 'odoo', 'shell', '-d', 'factorio_demo', '--no-http'], environment=env, input=helper.replace("MODE = 'provision'", "MODE = 'revoke'"))
+    print('Demo ready: ' + payload['public_url'] + '; seed committed; 14 automations enabled; bridge healthy')
+    print('Credentials stored outside git: ' + str(state) + '; API key expires ' + result['key_expires'])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--check', action='store_true', help='validate without provisioning')
+    parser.add_argument('--rotate-api-key', action='store_true', help='replace managed bot key, then revoke prior managed keys')
+    parser.add_argument('--backend-test', action='store_true', help='isolated Odoo-namespace backend proof; never desktop acceptance')
+    args = parser.parse_args()
+    try:
+        env = dict(os.environ)
+        preflight(env, backend_test=args.backend_test)
+        if args.check:
+            return
+        state = prepare_state(state_path(), project=env.get('FACTORIO_PROJECT', PROJECT))
+        env = environment(state)
+        provision(state, env, rotate=args.rotate_api_key, backend_test=args.backend_test)
+    except (ValueError, RuntimeError, OSError, KeyError) as error:
+        print('Bootstrap stopped: ' + str(error), file=sys.stderr)
+        raise SystemExit(2) from None
+
+
+if __name__ == '__main__':
+    main()

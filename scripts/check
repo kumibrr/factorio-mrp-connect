@@ -11,7 +11,7 @@ if [[ "$mode" == odoo ]]; then
     echo "Usage: ./scripts/check odoo [--tags TAGS]" >&2
     exit 2
   fi
-  export ODOO_IMAGE POSTGRES_IMAGE
+  export ODOO_IMAGE POSTGRES_IMAGE PYTHON_IMAGE
   export ODOO_DATABASE=factorio_tests ODOO_HTTP_PORT=8169
   export ODOO_SUBNET=172.29.0.0/24 ODOO_GATEWAY=172.29.0.1
   export POSTGRES_PASSWORD=${FACTORIO_TEST_DB_PASSWORD:-$(python3 -c 'import secrets; print("factorio-" + secrets.token_urlsafe(32))')}
@@ -48,8 +48,8 @@ PYPROBE
   rm -f "$probe_file"
   exit
 fi
-if [[ "$mode" != bridge && "$mode" != lua ]]; then
-  echo 'Usage: ./scripts/check bridge [pytest-arguments...] | lua | odoo --tags TAGS' >&2
+if [[ "$mode" != bridge && "$mode" != lua && "$mode" != e2e ]]; then
+  echo 'Usage: ./scripts/check bridge [pytest-arguments...] | e2e [pytest-arguments...] | lua | odoo --tags TAGS' >&2
   exit 2
 fi
 shift
@@ -61,6 +61,20 @@ fi
 # Resolve the local immutable image ID before running; never execute a moving tag.
 image_id=$(docker image inspect --format '{{.Id}}' "$image_tag")
 runner=()
+if [[ "$mode" == e2e ]]; then
+  mkdir -p "$repo_root/runtime"
+  config_file=$(mktemp "$repo_root/runtime/compose-config-XXXXXX.json")
+  trap 'rm -f "$config_file"' EXIT
+  export ODOO_IMAGE POSTGRES_IMAGE PYTHON_IMAGE POSTGRES_PASSWORD=nonsecret-contract-password
+  export FACTORIO_STATE_DIR=/nonexistent/factorio-connect-contract
+  export ODOO_HTTP_PORT=8069 ODOO_SUBNET=172.28.0.0/24 ODOO_GATEWAY=172.28.0.1
+  export BRIDGE_HTTP_PORT=8765 BRIDGE_UDP_PORT=34200 GAME_UDP_PORT=34199
+  unset ODOO_CONFIG_FILE
+  docker compose -p factorio-connect --profile bridge -f "$repo_root/deploy/compose.yaml" config --format json > "$config_file"
+  chmod 644 "$config_file"
+  set -- -p no:cacheprovider "$@"
+  runner=(--workdir /repo -e "FACTORIO_COMPOSE_CONFIG=/repo/runtime/$(basename "$config_file")")
+fi
 if [[ "$mode" == lua ]]; then runner=(--entrypoint lua5.2); set -- /repo/factorio-mod/tests/lua/run.lua; fi
 docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m "${runner[@]}" \
   --user "$(id -u):$(id -g)" -v "$repo_root:/repo:ro" "$image_id" "$@"

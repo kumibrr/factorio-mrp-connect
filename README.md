@@ -2,26 +2,41 @@
 
 # factorio-connect
 
-Reflect a self-hosted Odoo MRP factory automatically in Factorio: work centers,
-work orders, production quantities, BOM dependencies, and material availability.
-Odoo supplies the production truth; Factorio supplies the operational view.
+View an Odoo MRP factory in Factorio: work centers, work orders, recorded
+production, BOM dependencies and material availability. Odoo supplies the
+production truth; Factorio displays it and never writes business records.
 
-The project currently contains a design specification. The mod, bridge,
-Odoo addons, Docker setup, and runnable demo are implementation deliverables.
+The local demo targets Linux x86_64, local rootful Docker Engine, Compose >=2.24.0,
+host Python >=3.10, Odoo 20 Community/PostgreSQL 17 and a separately owned
+single-player Factorio 2.0.77 base-game client. Runtime image digests and exact
+Python dependency hashes are committed. No Factorio server, RCON, Enterprise
+module or Space Age is required.
 
-## Specifications
+From the repository root:
 
-- [System design](docs/superpowers/specs/2026-10-09-factorio-odoo-mrp-design.md):
-  agreed scope, architecture, webhook and UDP behavior, visualization,
-  documentation contract, and acceptance criteria.
-- [Complete demo seed specification](docs/superpowers/specs/2026-10-09-factorio-odoo-mrp-seed-data.md):
-  factory records, products, BOMs, inventory, production scenarios, seeding
-  workflow, expected balances, and verification walkthrough.
-- [Implementation plan](docs/superpowers/plans/2026-10-09-factorio-odoo-mrp.md):
-  nine tasks with shared interfaces, tests, runtime acceptance, and documentation.
+```sh
+./scripts/bootstrap-demo --check
+./scripts/bootstrap-demo
+./scripts/seed-demo --verify-baseline
+./scripts/package-mod
+```
 
-The first demo targets Linux, Odoo 20 Community in Docker Compose, and a
-separately installed single-player Factorio 2.0 client. Odoo webhooks trigger
-updates; a full refresh every 60 seconds recovers missed notifications.
+Open Odoo at `http://127.0.0.1:8069`. Credentials are generated outside git.
+Install the packaged mod into a dedicated mod directory/save, launch the game
+with `--enable-lua-udp 34199`, and privately configure the pairing token and
+bridge port 34200 as described in [local setup](docs/local-demo.md).
 
-Created in [T3 Code](https://t3.codes).
+- [Local setup, credentials, rotation and health](docs/local-demo.md)
+- [PumpWorks baseline and operation walkthrough](docs/demo-walkthrough.md)
+- [Architecture and source/transport semantics](docs/architecture.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Backup and explicit demo-only reset](docs/reset.md)
+- [Approved design](docs/superpowers/specs/2026-10-09-factorio-odoo-mrp-design.md)
+- [Normative seed data](docs/superpowers/specs/2026-10-09-factorio-odoo-mrp-seed-data.md)
+
+Developer checks: `./scripts/check bridge`, `./scripts/check lua`,
+`./scripts/check odoo`, and `./scripts/check e2e -q tests/e2e`.
+Setup tests and isolated backend provisioning are distinct from physical
+desktop/live-game acceptance. The current development host has rootless Docker
+and no licensed GUI client; the complete live pipeline remains Task9 acceptance
+work. Normal bootstrap rejects rootless Docker for the supported desktop path.

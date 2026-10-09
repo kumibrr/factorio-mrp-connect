@@ -1,0 +1,224 @@
+"""Operator contracts; actual Docker provisioning is recorded separately."""
+import importlib.machinery
+import importlib.util
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import zipfile
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / 'scripts'))
+
+
+def load_bootstrap():
+    path = ROOT / 'scripts/bootstrap-demo'
+    assert path.exists(), 'bootstrap interface missing'
+    loader = importlib.machinery.SourceFileLoader('bootstrap_demo', str(path))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def test_compose_matches_linux_socket_contract():
+    config = json.loads(Path(os.environ['FACTORIO_COMPOSE_CONFIG']).read_text())
+    services = config['services']
+    assert not services['db'].get('ports')
+    assert services['bridge']['network_mode'] == 'host'
+    assert services['odoo']['ports'][0]['host_ip'] == '127.0.0.1'
+    assert str(services['odoo']['ports'][0]['published']) == '8069'
+    assert services['bridge']['environment']['FACTORIO_BIND_HOST'] == '172.28.0.1'
+    assert str(services['bridge']['environment']['FACTORIO_UDP_PORT']) == '34200'
+    assert str(services['bridge']['environment']['FACTORIO_GAME_UDP_PORT']) == '34199'
+    for name in ('db', 'odoo'):
+        assert '@sha256:' in services[name]['image']
+    assert '@sha256:' in services['bridge']['build']['args']['PYTHON_IMAGE']
+    assert config['networks']['default']['ipam']['config'][0] == {'subnet': '172.28.0.0/24', 'gateway': '172.28.0.1'}
+    for name in ('db', 'odoo', 'bridge'):
+        assert services[name]['labels']['io.factorio-connect.owner'] == 'factorio-connect-demo'
+
+
+def test_bootstrap_rerun_preserves_seed_and_secrets(tmp_path, monkeypatch):
+    module = load_bootstrap()
+    state = module.prepare_state(tmp_path / 'outside-git')
+    before = {p.name: p.read_bytes() for p in state.iterdir() if p.is_file()}
+    # Provisioned metadata and seed IDs represent prior committed operator state.
+    metadata = {'source_id': '12345678-1234-5678-1234-567812345678', 'scope_id': 'company:1/warehouse:1', 'key_expires': '2026-11-08', 'seed_ids': [1, 2, 3]}
+    (state / 'metadata.json').write_text(json.dumps(metadata))
+    module.prepare_state(state)
+    assert all((state / name).read_bytes() == data for name, data in before.items())
+    assert json.loads((state / 'metadata.json').read_text()) == metadata
+    assert all(p.stat().st_mode & 0o077 == 0 for p in state.iterdir() if p.is_file())
+    assert (state / 'db-password').read_text().startswith('factorio-')
+
+
+def test_package_has_expected_root_and_no_secrets(tmp_path):
+    script = ROOT / 'scripts/package-mod'
+    assert script.exists(), 'packaging interface missing'
+    destination = tmp_path / 'dist'
+    result = subprocess.run([sys.executable, str(script), '--output-dir', str(destination)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+    archive = destination / 'factorio-connect_0.1.0.zip'
+    first = archive.read_bytes()
+    subprocess.run([sys.executable, str(script), '--output-dir', str(destination)], check=True, capture_output=True)
+    assert archive.read_bytes() == first
+    with zipfile.ZipFile(archive) as package:
+        assert all(name.startswith('factorio-connect_0.1.0/') for name in package.namelist())
+        expected = ['info.json', 'control.lua', 'data.lua', 'settings.lua']
+        assert all('factorio-connect_0.1.0/' + name in package.namelist() for name in expected)
+        assert all('/tests/' not in name and '.env' not in name and 'token' not in name for name in package.namelist())
+        for name in package.namelist():
+            source = ROOT / 'factorio-mod' / name.split('/', 1)[1]
+            assert source.read_bytes() == package.read(name)
+
+
+def test_preflight_rejects_remote_and_rootless():
+    module = load_bootstrap()
+    with pytest.raises(ValueError, match='local'):
+        module.validate_daemon('tcp://remote:2375', ['name=seccomp'], 'linux')
+    with pytest.raises(ValueError, match='rootful'):
+        module.validate_daemon('unix:///run/user/1000/docker.sock', ['name=rootless'], 'linux')
+    module.validate_daemon('unix:///var/run/docker.sock', ['name=seccomp'], 'linux')
+
+
+def test_preflight_accepts_builtin_network_without_ipam(tmp_path, monkeypatch):
+    module = load_bootstrap()
+    monkeypatch.delenv('DOCKER_HOST', raising=False)
+    responses = {
+        ('docker', 'context', 'inspect'): json.dumps([{'Endpoints': {'docker': {'Host': 'unix:///var/run/docker.sock'}}}]),
+        ('docker', 'info', '--format', '{{json .}}'): json.dumps({'SecurityOptions': [], 'OSType': 'linux'}),
+        ('docker', 'compose', 'version', '--short'): '5.5.1',
+        ('docker', 'network', 'ls', '-q'): 'host-network',
+        ('docker', 'network', 'inspect', 'host-network'): json.dumps([{'Labels': {}, 'IPAM': {'Config': None}}]),
+    }
+    monkeypatch.setattr(module, 'run', lambda args: responses.get(tuple(args), 'already-running' if args[:3] == ['docker', 'ps', '-q'] else ''))
+    # Resource enumeration also crosses Docker, so isolate that separate boundary.
+    monkeypatch.setattr(module, 'owned_targets', lambda project: [])
+    module.preflight({})
+
+
+def test_seed_cli_uses_official_database_entrypoint(tmp_path, monkeypatch, capsys):
+    loader = importlib.machinery.SourceFileLoader('seed_cli', str(ROOT / 'scripts/seed-demo'))
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    monkeypatch.setenv('FACTORIO_STATE_DIR', str(tmp_path / 'absent'))
+    monkeypatch.setenv('POSTGRES_PASSWORD', 'caller-secret')
+    monkeypatch.setattr(sys, 'argv', ['seed-demo', '--verify-baseline'])
+    calls = []
+    def docker_boundary(args, **kwargs):
+        calls.append((args, kwargs))
+        return '{"verified": true}'
+    monkeypatch.setattr(module, 'run', docker_boundary)
+    module.main()
+    assert '/entrypoint.sh' in calls[0][0]
+    assert 'caller-secret' not in ' '.join(calls[0][0])
+    assert 'FACTORIO_SEED_MODE=--verify-baseline' in calls[0][0]
+    assert 'SET TRANSACTION READ ONLY' in calls[0][1]['input']
+    assert 'caller-secret' not in capsys.readouterr().out
+
+
+def test_runtime_pins_reject_moving_or_wrong_major_images():
+    module = load_bootstrap()
+    from demo_common import pins
+    expected = pins()
+    module.validate_versions(expected)
+    for name, image in [('ODOO_IMAGE','odoo:latest'),('POSTGRES_IMAGE','postgres:18@sha256:' + 'a'*64),('PYTHON_IMAGE','python:3.13@sha256:' + 'a'*64)]:
+        with pytest.raises(ValueError, match='pin'):
+            module.validate_versions(dict(expected, **{name:image}))
+
+
+def test_docker_failure_diagnostics_use_common_redactor(tmp_path):
+    from demo_common import run, private_write
+    state = tmp_path / 'state'
+    state.mkdir()
+    private_write(state / 'api-key', 'private-api')
+    environment = dict(os.environ, FACTORIO_STATE_DIR=str(state), POSTGRES_PASSWORD='private-db')
+    command = [sys.executable, '-c', "import sys; print('Bearer private-api /odoo/events/private-hook private-db', file=sys.stderr); sys.exit(1)"]
+    with pytest.raises(RuntimeError) as error:
+        run(command, environment=environment)
+    assert '[REDACTED]' in str(error.value)
+    assert 'private-api' not in str(error.value)
+    assert 'private-hook' not in str(error.value)
+    assert 'private-db' not in str(error.value)
+
+
+def test_backend_adapter_is_explicit_and_test_project_only(tmp_path, monkeypatch):
+    module = load_bootstrap()
+    state = tmp_path / 'state'
+    state.mkdir()
+    env = {'FACTORIO_PROJECT': 'factorio-connect-tests', 'FACTORIO_STATE_DIR': str(state), 'BRIDGE_HTTP_PORT': '8875'}
+    def docker_boundary(args, **kwargs):
+        if args[-3:] == ['ps', '-q', 'odoo']:
+            return 'odoo-test-container'
+        return json.dumps([{'NetworkSettings': {'Networks': {'factorio-connect-tests_default': {'IPAddress': '172.29.0.3'}}}}])
+    monkeypatch.setattr(module, 'run', docker_boundary)
+    module.configure_backend(state, env)
+    override = json.loads((state / 'backend.compose.yaml').read_text())
+    bridge = override['services']['bridge']
+    assert bridge['network_mode'] == 'service:odoo'
+    assert bridge['environment']['FACTORIO_BIND_HOST'] == '172.29.0.3'
+    assert bridge['environment']['FACTORIO_ODOO_BASE_URL'] == 'http://127.0.0.1:8069'
+    from demo_common import compose
+    assert str(state / 'backend.compose.yaml') in compose(env)
+    with pytest.raises(ValueError, match='test'):
+        compose(dict(env, FACTORIO_PROJECT='factorio-connect'))
+
+
+def test_bootstrap_refuses_foreign_state_directory(tmp_path):
+    module = load_bootstrap()
+    foreign = tmp_path / 'foreign'
+    foreign.mkdir()
+    (foreign / 'important').write_text('preserve')
+    with pytest.raises(ValueError, match='state ownership'):
+        module.prepare_state(foreign)
+    assert (foreign / 'important').read_text() == 'preserve'
+    owned = module.prepare_state(tmp_path / 'owned')
+    with pytest.raises(ValueError, match='state ownership'):
+        module.prepare_state(owned, project='factorio-connect-test-other')
+
+
+def test_compose_minimum_supports_optional_env_file_and_newer_majors():
+    module = load_bootstrap()
+    with pytest.raises(ValueError, match='2.24'):
+        module.validate_compose_version('2.23.3')
+    module.validate_compose_version('2.24.0')
+    module.validate_compose_version('5.5.1')
+
+
+def test_preflight_honors_remote_context_over_local_host_override(monkeypatch):
+    module = load_bootstrap()
+    monkeypatch.setenv('DOCKER_CONTEXT', 'remote-context')
+    monkeypatch.setenv('DOCKER_HOST', 'unix:///var/run/docker.sock')
+    def docker_boundary(args):
+        if args == ['docker', 'context', 'inspect']:
+            return json.dumps([{'Endpoints': {'docker': {'Host': 'ssh://remote'}}}])
+        return json.dumps({'SecurityOptions': [], 'OSType': 'linux'})
+    monkeypatch.setattr(module, 'run', docker_boundary)
+    with pytest.raises(ValueError, match='local'):
+        module.preflight({})
+
+
+def test_normal_bootstrap_rejects_test_override(monkeypatch):
+    module = load_bootstrap()
+    monkeypatch.delenv('DOCKER_CONTEXT', raising=False)
+    monkeypatch.delenv('DOCKER_HOST', raising=False)
+    def docker_boundary(args):
+        if args == ['docker', 'context', 'inspect']:
+            return json.dumps([{'Endpoints': {'docker': {'Host': 'unix:///var/run/docker.sock'}}}])
+        if args == ['docker','compose','version','--short']:
+            return '5.5.1'
+        return json.dumps({'SecurityOptions': [], 'OSType': 'linux'})
+    monkeypatch.setattr(module, 'run', docker_boundary)
+    with pytest.raises(ValueError, match='explicit --backend-test'):
+        module.preflight({'FACTORIO_PROJECT':'factorio-connect-tests','FACTORIO_COMPOSE_OVERRIDE':'test-only.yaml'})
+
+
+def test_preflight_rejects_docker_desktop_socket():
+    module = load_bootstrap()
+    with pytest.raises(ValueError, match='Desktop'):
+        module.validate_daemon('unix:///home/operator/.docker/desktop/docker.sock', [], 'linux')

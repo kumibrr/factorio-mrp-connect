@@ -1,5 +1,7 @@
 services:
   db:
+    labels: &owner
+      io.factorio-connect.owner: factorio-connect-demo
     image: ${POSTGRES_IMAGE:?source deploy/versions.env}
     environment:
       POSTGRES_USER: odoo
@@ -12,6 +14,7 @@ services:
       interval: 2s
       retries: 30
   odoo:
+    labels: *owner
     image: ${ODOO_IMAGE:?source deploy/versions.env}
     depends_on:
       db:
@@ -20,6 +23,7 @@ services:
       HOST: db
       USER: odoo
       PASSWORD: ${POSTGRES_PASSWORD:?set local PostgreSQL password}
+      ODOO_ADMIN_PASSWD: ${ODOO_MASTER_PASSWORD:-unconfigured-tests-only}
       PYTHONPATH: /opt/factorio-connect-common
     ports:
       - '127.0.0.1:${ODOO_HTTP_PORT:-8069}:8069'
@@ -27,14 +31,50 @@ services:
       - odoo-data:/var/lib/odoo
       - ../odoo-addons:/mnt/extra-addons:ro
       - ../bridge/src/factorio_connect_common:/opt/factorio-connect-common/factorio_connect_common:ro
-      - ./odoo.conf:/etc/odoo/odoo.conf:ro
+      - ${ODOO_CONFIG_FILE:-./odoo.conf}:/etc/odoo/odoo.conf:ro
+    healthcheck:
+      test: [CMD, python3, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8069/web/health', timeout=2)"]
+      interval: 5s
+      retries: 60
     command: ['odoo', '-d', '${ODOO_DATABASE:-factorio_demo}']
+  bridge:
+    labels: *owner
+    profiles: [bridge]
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.bridge
+      args:
+        PYTHON_IMAGE: ${PYTHON_IMAGE:?source deploy/versions.env}
+    network_mode: host
+    depends_on:
+      odoo:
+        condition: service_healthy
+    env_file:
+      - path: ${FACTORIO_STATE_DIR:-../runtime}/bridge.env
+        required: false
+    environment:
+      FACTORIO_BIND_HOST: ${ODOO_GATEWAY:-172.28.0.1}
+      FACTORIO_BIND_PORT: ${BRIDGE_HTTP_PORT:-8765}
+      FACTORIO_UDP_PORT: ${BRIDGE_UDP_PORT:-34200}
+      FACTORIO_GAME_UDP_PORT: ${GAME_UDP_PORT:-34199}
+      FACTORIO_ODOO_BASE_URL: http://127.0.0.1:${ODOO_HTTP_PORT:-8069}
+    volumes:
+      - bridge-data:/var/lib/factorio-bridge
+    healthcheck:
+      test: [CMD, python, -c, "import os,urllib.request; urllib.request.urlopen('http://%s:%s/healthz' % (os.environ['FACTORIO_BIND_HOST'],os.environ['FACTORIO_BIND_PORT']),timeout=2)"]
+      interval: 5s
+      retries: 30
 networks:
   default:
+    labels: *owner
     ipam:
       config:
         - subnet: ${ODOO_SUBNET:-172.28.0.0/24}
           gateway: ${ODOO_GATEWAY:-172.28.0.1}
 volumes:
   database:
+    labels: *owner
   odoo-data:
+    labels: *owner
+  bridge-data:
+    labels: *owner
