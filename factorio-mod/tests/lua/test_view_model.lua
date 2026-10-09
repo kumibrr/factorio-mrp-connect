@@ -45,9 +45,27 @@ function cases.unreserved_is_not_physical_shortage_and_health_is_fenced()
   local s=f.snapshot();for _,m in ipairs(s.material_demands) do m.availability_state=nil end;s.manufacturing_orders[7].availability_state=nil
   local h=f.healthy();h.verified=false
   local v=f.module('view_model').build(s,h)
-  assert(v.centers[2].material_warning_count==0 and v.sync.label:find('Unverified',1,true))
+  assert(v.centers[2].material_warning_count==0 and v.sync.label:find('Resynchronizing',1,true))
   h=f.healthy();h.health.source_age_seconds=91
   assert(f.module('view_model').build(s,h).sync.label:find('Stale',1,true))
+end
+function cases.transport_recovery_and_failed_source_freshness_are_independent()
+  local vm=f.module('view_model');local snapshot=f.snapshot()
+  local v=vm.build(snapshot,{connected=false,verified=false,stage='challenge',restart_reason='timeout'})
+  assert(v.sync.transport_label=='Disconnected' and v.sync.label=='Disconnected')
+  assert(v.sync.freshness_label=='Source freshness Unknown' and v.sync.source_age_label=='Unknown')
+  for _,reason in ipairs({'load','resume'}) do
+    v=vm.build(snapshot,{connected=false,verified=false,stage='challenge',restart_reason=reason})
+    assert(v.sync.transport_label=='Resynchronizing' and v.sync.restart_reason==reason)
+  end
+  for _,stage in ipairs({'ack','bound'}) do
+    v=vm.build(snapshot,{connected=stage=='bound',verified=false,stage=stage,restart_reason='timeout'})
+    assert(v.sync.transport_label=='Resynchronizing')
+  end
+  local h=f.healthy();h.health.source_ok=false;h.health.last_error='read_failed';h.health.source_age_seconds=91
+  v=vm.build(snapshot,h)
+  assert(v.sync.source_failed and v.sync.stale and v.sync.freshness_label=='Stale source data')
+  assert(v.sync.label=='Stale source data' and v.sync.error=='read_failed')
 end
 function cases.safe_ids_remain_distinct()
   local s=f.snapshot();s.work_centers[1].id=9007199254740990;s.work_centers[2].id=9007199254740991

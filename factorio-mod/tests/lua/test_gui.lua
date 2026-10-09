@@ -28,5 +28,14 @@ return {
     local h=f.healthy();h.health.source_ok=false;h.health.last_error='read_failed';h.health.last_success_at='2026-10-09T11:59:00Z'
     m.update(p,f.module('view_model').build(f.snapshot(),h))
     local text=f.texts(p.gui.screen);assert(text:find('Inspection',1,true) and text:find('read_failed',1,true) and text:find('2026-10-09T11:59:00Z',1,true))
+  end,
+  transport_and_stale_source_error_remain_visible_together=function()
+    local p=f.player();local gui=f.module('gui');local h=f.healthy()
+    h.verified=false;h.health.source_ok=false;h.health.source_age_seconds=91;h.health.last_error='read_failed'
+    gui.show(p,f.module('view_model').build(f.snapshot(),h),2)
+    local text=f.texts(p.gui.screen)
+    for _,value in ipairs({'Resynchronizing','Stale source data','Source read failed','read_failed'}) do
+      assert(text:find(value,1,true),value..' missing')
+    end
   end
 }

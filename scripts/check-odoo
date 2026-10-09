@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""Native Odoo check, confined to one newly owned isolated test-project run."""
+import argparse
+import hashlib
+import os
+from pathlib import Path
+import secrets
+import sys
+import tempfile
+
+from demo_common import ROOT, cleanup_test_project, compose, exclusive_test_project, pins, run
+
+PROJECT = 'factorio-connect-tests'
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--tags', default='/factorio_connect,/factorio_connect_demo')
+    args = parser.parse_args()
+    env = dict(os.environ, **pins(), FACTORIO_PROJECT=PROJECT, ODOO_DATABASE='factorio_tests',
+               ODOO_HTTP_PORT='8169', ODOO_SUBNET='172.29.0.0/24', ODOO_GATEWAY='172.29.0.1',
+               POSTGRES_PASSWORD=os.environ.get('FACTORIO_TEST_DB_PASSWORD') or 'factorio-' + secrets.token_urlsafe(32))
+    env.pop('FACTORIO_COMPOSE_OVERRIDE', None)
+    env.pop('ODOO_CONFIG_FILE', None)
+    command = compose(env)
+    try:
+        with exclusive_test_project(PROJECT) as run_id:
+            env['FACTORIO_TEST_RUN'] = run_id
+            (ROOT / 'runtime').mkdir(exist_ok=True)
+            probe_file = None
+            try:
+                def execute(arguments, **kwargs):
+                    print(run(arguments, environment=env, include_stderr=True, **kwargs), end='', flush=True)
+
+                execute(command + ['up', '-d', 'db'])
+                execute(command + ['run', '--rm', 'odoo', 'odoo', '-d', 'factorio_tests', '-i',
+                                   'factorio_connect,factorio_connect_demo', '--without-demo=True',
+                                   '--test-enable', '--stop-after-init', '--test-tags', args.tags, '--log-level=test'])
+                execute(command + ['run', '--rm', '-T', 'odoo', 'odoo', 'shell', '-d', 'factorio_tests', '--no-http'],
+                        input='from odoo.addons.factorio_connect_demo.tests.json2_probe import bootstrap\nbootstrap(env)\n')
+                execute(command + ['up', '-d', 'odoo'])
+                execute([str(ROOT / 'scripts/check'), 'bridge', '-q', 'tests/test_odoo_client.py', 'tests/test_store.py'])
+                build_key = hashlib.sha256(b''.join((ROOT / file).read_bytes() for file in
+                                                   ['deploy/Dockerfile.tests', 'bridge/requirements-dev.lock', 'deploy/versions.env'])).hexdigest()[:20]
+                image = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'factorio-connect-tests:' + build_key], environment=env).strip()
+                execute(['docker', 'run', '--rm', '--network', PROJECT + '_default', '--read-only',
+                         '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m', '-e', 'PYTHONPATH=/repo/bridge/src',
+                         '-v', str(ROOT) + ':/repo:ro', '-v', PROJECT + '_odoo-data:/odoo:ro',
+                         '--entrypoint', 'python', image, '/repo/bridge/tests/live_seeded_probe.py'])
+                descriptor, path = tempfile.mkstemp(prefix='odoo-json2-', suffix='.json', dir=ROOT / 'runtime')
+                os.close(descriptor)
+                probe_file = Path(path)
+                probe_file.write_text(run(command + ['exec', '-T', 'odoo', 'python3',
+                                                    '/mnt/extra-addons/factorio_connect_demo/tests/json2_probe.py'], environment=env))
+                execute([str(ROOT / 'scripts/check'), 'bridge', '-q', 'tests/test_contracts.py'])
+                execute(['docker', 'run', '--rm', '--network', 'none', '--read-only', '-e', 'PYTHONPATH=/repo/bridge/src',
+                         '-v', str(ROOT) + ':/repo:ro', '--entrypoint', 'python', image, '-c',
+                         'import json,sys; from factorio_bridge.contracts import validate_snapshot; from jsonschema import Draft202012Validator; '
+                         'p=json.load(open(sys.argv[1])); Draft202012Validator(json.load(open("/repo/contracts/snapshot-v1.schema.json"))).validate(p); '
+                         's=validate_snapshot(p); print("Live bearer JSON2 response: schema and graph valid; company=%d; MOs=%d; WOs=%d; '
+                         'business rows unchanged; bearer write denied HTTP403" % (s.meta.company_id,len(s.manufacturing_orders),len(s.work_orders)))',
+                         '/repo/runtime/' + probe_file.name])
+            finally:
+                if probe_file:
+                    probe_file.unlink(missing_ok=True)
+                cleanup_test_project(env)
+    except (ValueError, RuntimeError, OSError) as error:
+        print('Odoo check stopped: ' + str(error), file=sys.stderr)
+        raise SystemExit(2) from None
+
+
+if __name__ == '__main__':
+    main()

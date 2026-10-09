@@ -24,8 +24,20 @@ demo --profile bridge up -d --wait odoo bridge
 Also save a separate copy of your dedicated Factorio save/mod settings using
 the game UI or file manager. Backups contain credentials and customer/demo
 business data; keep the directory private. For a custom `FACTORIO_STATE_DIR`,
-substitute that directory in the `cp` command. The SQLite cache is expendable;
-a recovered bridge performs a fresh source read.
+substitute that directory in the `cp` command. SQLite revision history lives in
+the separate `bridge-data` volume; the commands above back up the Odoo database,
+filestore and operator state. Preserve the SQLite cache's
+revision history with a matched backup whenever possible. An ordinary bridge
+restart with its durable cache recovers automatically and performs a fresh
+source read.
+
+If the cache is deleted/recreated or restored behind the revision in the game
+save, use the Factory panel's **Local re-pair…** action and **Confirm local
+re-pair** after restarting the bridge. This is required even when the restored
+Odoo database UUID is unchanged. The save rejects lower revisions; an equal
+revision cannot replace its business data or source timestamp. Confirmed local
+re-pair clears the saved revision and binding, then accepts a fresh complete
+snapshot. It clears only mod-owned display entities and leaves Odoo untouched.
 
 Inspect ownership before reset:
 
@@ -58,5 +70,8 @@ PostgreSQL `pg_restore -U odoo -d factorio_demo --clean --if-exists` through the
 `demo exec -T db` wrapper. Restore `odoo-data.tar.gz` into the owned `odoo-data`
 volume via a one-shot Odoo container with `--entrypoint tar`; restore the matching
 operator-state directory, then bootstrap. Restoring the matched database UUID,
-filestore and credential state preserves source binding. If the saved bot key
+filestore and credential state preserves source identity. It does not guarantee
+that an older or recreated bridge cache advances beyond the game's saved
+revision: follow the confirmed local re-pair procedure above in that case,
+even with the same UUID. If the saved bot key
 expired, explicitly rotate it. Never restore into an unrelated database/volume.

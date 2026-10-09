@@ -285,6 +285,54 @@ def test_isolated_environment_retains_context_and_owned_credentials(tmp_path, mo
     assert env['FACTORIO_COMPOSE_OVERRIDE'] == str(state / 'backend.compose.yaml')
 
 
+def test_webhook_debug_configuration_requires_explicit_isolated_backend_context():
+    import configparser
+    module = load_bootstrap()
+    context = {'FACTORIO_PROJECT': 'factorio-connect-tests', 'FACTORIO_TEST_CONTEXT': 'factorio-connect-tests',
+               'FACTORIO_TEST_WEBHOOK_DEBUG': '1'}
+    for env, backend in [(context, False), (dict(context, FACTORIO_PROJECT='factorio-connect'), True),
+                         (dict(context, FACTORIO_TEST_CONTEXT=''), True),
+                         (dict(context, FACTORIO_TEST_WEBHOOK_DEBUG='all'), True)]:
+        with pytest.raises(ValueError, match='webhook debug'):
+            module.odoo_configuration(env, backend_test=backend)
+    config = configparser.ConfigParser()
+    config.read_string(module.odoo_configuration(context, backend_test=True))
+    assert config['options']['log_handler'] == 'odoo.addons.base.models.ir_actions:DEBUG'
+    default = configparser.ConfigParser()
+    default.read_string(module.odoo_configuration({}, backend_test=False))
+    assert 'log_handler' not in default['options']
+
+
+@pytest.mark.parametrize('flag,diagnostic', [('FACTORIO_TEST_WEBHOOK_DEBUG','webhook debug'), ('FACTORIO_TEST_DISABLE_CRON','cron control')])
+def test_production_bootstrap_refuses_test_configuration_before_docker(tmp_path, flag, diagnostic):
+    env = dict(os.environ, FACTORIO_PROJECT='factorio-connect',
+               FACTORIO_STATE_DIR=str(tmp_path / 'absent'), DOCKER_HOST='tcp://deliberately-unavailable:1')
+    env[flag] = '1'
+    result = subprocess.run([sys.executable, str(ROOT / 'scripts/bootstrap-demo'), '--check'],
+                            env=env, capture_output=True, text=True, timeout=5)
+    assert result.returncode == 2 and diagnostic in result.stderr
+    assert 'Docker' not in result.stderr and not (tmp_path / 'absent').exists()
+
+
+def test_isolated_cron_control_preserves_production_defaults_and_requires_backend_context():
+    import configparser
+    module = load_bootstrap()
+    context = {'FACTORIO_PROJECT': 'factorio-connect-tests', 'FACTORIO_TEST_CONTEXT': 'factorio-connect-tests',
+               'FACTORIO_TEST_DISABLE_CRON': '1'}
+    for env, backend in [(context, False), (dict(context, FACTORIO_PROJECT='factorio-connect'), True),
+                         (dict(context, FACTORIO_TEST_CONTEXT=''), True),
+                         (dict(context, FACTORIO_TEST_DISABLE_CRON='all'), True)]:
+        with pytest.raises(ValueError, match='cron control'):
+            module.odoo_configuration(env, backend_test=backend)
+    config = configparser.ConfigParser()
+    config.read_string(module.odoo_configuration(context, backend_test=True))
+    assert config['options']['max_cron_threads'] == '0'
+    assert 'log_handler' not in config['options']
+    default = configparser.ConfigParser()
+    default.read_string(module.odoo_configuration({}, backend_test=False))
+    assert 'max_cron_threads' not in default['options']
+
+
 def test_deployed_smoke_unavailable_endpoint_emits_failed_report():
     env = dict(os.environ, ODOO_GATEWAY='127.0.0.1', BRIDGE_HTTP_PORT='0', NO_PROXY='127.0.0.1')
     result = subprocess.run([sys.executable, str(ROOT / 'scripts/smoke-demo')], env=env, capture_output=True, text=True)

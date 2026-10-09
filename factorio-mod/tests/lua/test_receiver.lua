@@ -49,6 +49,29 @@ function M.pause_delta_invalidates_connection()
   for _,f in ipairs(v.frames) do r.on_message(f,5) end
   assert(#a==0 and not r.status().verified)
   assert(s[#s].type=='hello')
+  assert(r.status().restart_reason=='resume')
+end
+function M.timeout_and_reconnect_fence_expose_transport_without_aging_source_by_ticks()
+  local r,v,s,a,c=F.rig();for _,frame in ipairs(v.frames) do r.on_message(frame,10) end
+  local h=F.copy(v.session);h.type='heartbeat';h.source_ok=true;h.source_age_seconds=12;h.source_read_at='2026-10-09T12:00:00Z'
+  for sequence=1,4 do h.sequence=sequence;r.on_message(h,10+sequence) end
+  local vm=require('scripts.view_model');assert(vm.build(a[1].snapshot,r.status()).sync.label=='Healthy')
+  r.on_tick(914,914)
+  local vmodel=vm.build(a[1].snapshot,r.status())
+  assert(vmodel.sync.transport_label=='Disconnected' and r.status().restart_reason=='timeout')
+  assert(vmodel.sync.freshness_label=='Source freshness Unknown')
+  assert(r.status().health==nil,'expired heartbeat remained current')
+  local challenge=F.copy(c);challenge.hello_nonce=s[#s].hello_nonce;challenge.challenge_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd'
+  r.on_message(challenge,915)
+  assert(vm.build(a[1].snapshot,r.status()).sync.transport_label=='Resynchronizing')
+  local ack=F.copy(v.session);ack.hello_nonce=challenge.challenge_id;r.on_message(ack,916)
+  for _,frame in ipairs(v.frames) do frame.hello_nonce=ack.hello_nonce;r.on_message(frame,917) end
+  h.hello_nonce=ack.hello_nonce
+  for sequence=1,3 do h.sequence=sequence;r.on_message(h,917+sequence)
+    assert(vm.build(a[1].snapshot,r.status()).sync.transport_label=='Resynchronizing') end
+  h.sequence=4;r.on_message(h,921)
+  assert(vm.build(a[1].snapshot,r.status()).sync.label=='Healthy')
+  assert(r.status().health.source_age_seconds==12,'running ticks changed bridge-reported wall age')
 end
 function M.source_change_requires_explicit_binding_reset()
   local r,v,s,a=F.rig({source_id='dddddddd-dddd-4ddd-8ddd-dddddddddddd',scope_id='company:1/warehouse:1'})

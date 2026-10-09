@@ -25,12 +25,26 @@ in that mode. Its explicit isolated mode performs the native scenarios and
 returns a structured pass/fail report, with timestamp/revision/delivery/seed
 fields and evidence paths. A failure exits nonzero and retains its report.
 
+For isolated native webhook diagnosis, set `FACTORIO_TEST_WEBHOOK_DEBUG=1` on
+a focused live/outage E2E invocation. It enables only the native `ir_actions`
+logger's DEBUG level and captures `odoo.log` with model/id/action metadata;
+webhook URLs remain redacted. The isolated smoke fixture also sets the guarded
+`FACTORIO_TEST_DISABLE_CRON=1`, using native `max_cron_threads=0` to keep background
+scheduler commits outside its controlled transaction observations. All14 native
+rules remain configured and manual ORM/workflows remain native; the missed-event
+scenario still disables/restores its rules explicitly. Production defaults are unchanged.
+Production bootstrap rejects both flags, as do
+missing or mismatched explicit backend-test contexts. Normal configuration is
+unchanged.
+
 The live project is exactly `factorio-connect-tests`, database `factorio_tests`,
 network `172.29.0.0/24` with gateway `172.29.0.1`, Odoo host port 8169,
 bridge HTTP 8875 and loopback UDP bridge/client 34300/34301. All targeted
-resources must carry both the project label and `io.factorio-connect.owner`.
-The harness refuses a pre-existing project rather than reseeding it; cleanup
-removes only resources from its labelled test project. It never stops or seeds
+resources carry the project label, `io.factorio-connect.owner`, and a fresh
+`io.factorio-connect.test-run` UUID. Native Odoo check and isolated smoke hold the
+same local-user project lock through inspection, execution and cleanup. Both
+refuse pre-existing targets before mutation; cleanup verifies every target
+against all three identities before removing only enumerated resources. It never stops or seeds
 a `factorio-connect-demo` instance. Production defaults and database guards
 remain `factorio_demo`.
 
@@ -106,13 +120,90 @@ Versions and pins:
 - Lua 5.2.4, pytest 9.0.2 and Pydantic 2.12.5; exact dependency hashes remain
   in the committed [locks](../bridge/requirements-dev.lock).
 - Docker Engine 29.8.0 (rootless), Compose 5.5.1.
-- Installable mod `dist/factorio-connect_0.1.0.zip`, SHA-256
+- Installable mod at the original Task 9 verification,
+  `dist/factorio-connect_0.1.0.zip`, SHA-256
   `abfdd3e1066047265dcab2f7fc81f2874f49d2138693dc81917c2fd720b08237`.
 
 The optional Odoo `markdown2 is not installed` warning remains visible and
 unsuppressed. A webhook failure/rollback log is intentionally induced by the
 native addon test; the final Odoo result has zero errors. These diagnostics
 are distinct from unavailable GUI checks.
+
+## Final review fix verification
+
+The final combined fix wave distinguishes disconnected/recovering transport,
+bridge-reported source freshness, and source errors in the GUI. Lua tests exercise
+receiver timeout, reconnect fence, load/resume and old failed source reads without
+using running ticks as source wall-clock age. The confirmed local re-pair regression
+keeps saved revision 1000 against lower/equal fresh snapshots, then accepts a fresh
+same-UUID revision 1 only after local confirmation. Ordinary durable-cache restart
+still accepts an advancing revision automatically. These are production Lua modules
+and GUI handlers with mocked engine objects, not a licensed GUI execution.
+
+| Covering command | New result | Raw evidence |
+| --- | --- | --- |
+| `./scripts/check bridge -q` | 142 passed | `runtime/final-fix-bridge-complete.log` |
+| `./scripts/check lua` | 45 passed, 0 failed | `runtime/final-fix-lua-final.log` |
+| `./scripts/check lua test_control` after strengthened recovery assertions | 3 passed, 0 failed | `runtime/final-fix-control-final.log` |
+| `./scripts/check e2e -q tests/e2e/test_setup.py` after fixture controls | 33 passed | `runtime/final-fix-setup-controlled.log` |
+| `FACTORIO_TEST_WEBHOOK_DEBUG=1 ./scripts/check e2e -q tests/e2e/test_live_pipeline.py tests/e2e/test_outages.py` after fixture controls | 5 passed after fresh native smoke | `runtime/final-fix-e2e-controlled.log`, `runtime/smoke-report-g2TFsa.json` |
+| `./scripts/check odoo` | 0 failures/errors of 25 native tests; 8 client/cache and 48 schema cases; live scoped seed/bearer checks passed, write denied HTTP403 | `runtime/final-fix-odoo-native.log` |
+| `./scripts/check factorio --binary …/factorio` | create and two loads passed | `runtime/final-fix-factorio-native.log`, `runtime/surface-smoke-8zvnzvto/report.json` |
+
+Native Odoo cleanup left zero containers, volumes and networks for the exact
+newly owned test project (`runtime/final-fix-odoo-cleanup.log`). The offline native
+entry-point regressions also refuse pre-existing and wrongly owned targets before
+mutation, refuse cleanup after a run-label mismatch (including a late volume),
+and prove check/smoke lock contention in both orders. During the new actual smoke
+lifecycle, a second native check exited 2 with an active-run refusal
+(`runtime/final-fix-live-contention.log`).
+
+The first fresh focused live/outage E2E command completed its native source,
+receiver and outage/recovery stages but exited 1 at the rollback receipt assertion;
+pytest was not reached. Report `runtime/smoke-report-0EjbLB.json` is failed and
+retained, with raw `runtime/final-fix-e2e-live.log` and
+`runtime/live-smoke-hn76o72x/{orm.log,bridge.log,receiver.json}`. Its rollback
+observation counted one HTTP202 receipt, although distinct transactions and the
+receiver retained the committed name and never accepted the rolled-back name.
+The committed native callback logged success before the rollback window; the
+rollback callback logged cancellation. The initial receipt cannot be individually attributed from those logs; this is
+not a passing live rollback check. Current-run label
+verification and cleanup completed and left no exact-project resources.
+
+One fresh diagnostic run then passed all five focused live/outage checks
+(`runtime/final-fix-e2e-diagnostic.log`, `runtime/smoke-report-q0pcIi.json`). Its
+native Odoo metadata log identifies an independent procurement scheduler batch:
+it emits a stock.move.line id66 event and commits at 19:04:54.574, just after the
+rollback shell's mrp.workcenter id2 hook was cancelled at 19:04:52.616. That proves
+an unrelated background writer can affect the aggregate receipt count. The first
+run's metadata-free receipt is not retroactively identified; this is the likely
+cause, with that limitation. Diagnostic metadata-only keys and redacted URL paths
+were checked (`runtime/final-fix-diagnostic-attribution.log`). The final fresh fixture
+run with guarded native cron threads disabled passed all five focused checks,
+including zero rollback receipts and no rolled-back name in accepted state. Its
+native config probe reported cron0 and all14 rules active; the Odoo service log
+contains no scheduler job markers. The initial 31 offline setup/reset checks
+passed before diagnostic controls; the latest 33-case setup suite covers both
+production flag refusals. This controlled fixture does not establish production
+scheduler behavior and keeps the zero-receipt assertion.
+
+Fresh final runtime evidence (19:09:55–19:13:25 UTC): commit delivery 1.241991 s
+with published/applied revision4; missed notification reconciliation 19.276416 s;
+native stock/reservation update 1.059353 s with published/applied revision6.
+Outage retained revision6 and `2026-10-09T19:12:43.573883Z`; recovery accepted
+revision7 and `2026-10-09T19:13:21.271955Z`. These are backend adapter timings,
+not actual GUI delivery. Raw logs are in `runtime/live-smoke-pe0juiag`; the final
+audit confirms 58 metadata-only events, redacted URL paths, native cron0/rules14,
+and zero exact-project resources after cleanup (`runtime/final-fix-controlled-audit.log`).
+
+The regenerated current distributable `dist/factorio-connect_0.1.0.zip` has
+SHA-256 `1f024a0750eb9e6e9b299e483c1834f77ac53021ece275b9c537bdee3e3b15e3`.
+All 16 runtime assets compare byte-for-byte with source and all ZIP CRCs validate
+(`runtime/final-fix-package.log`). Only the obsolete five receiver replay examples
+and one obsolete bridge replay example were retired; every retained fixture field
+is unchanged (`runtime/final-fix-fixture-audit.log`), and current challenge/case
+coverage still executes in Python and Lua. Runtime pins and normative seed semantics
+are unchanged. The optional Markdown warning remains visible and unsupported.
 
 ## Failed during development
 

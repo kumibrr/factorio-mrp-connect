@@ -2,6 +2,7 @@ services:
   db:
     labels: &owner
       io.factorio-connect.owner: factorio-connect-demo
+      io.factorio-connect.test-run: ${FACTORIO_TEST_RUN:-}
     image: ${POSTGRES_IMAGE:?source deploy/versions.env}
     environment:
       POSTGRES_USER: odoo

@@ -1,9 +1,13 @@
 """Shared local demo identity and secret-safe Compose process boundary."""
 import json
+from contextlib import contextmanager
+import fcntl
 import os
 from pathlib import Path
 import subprocess
 import sys
+import stat
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 OWNER = 'factorio-connect-demo'
@@ -30,9 +34,11 @@ def run(args, *, environment=None, input=None, include_stderr=False):
     return result.stdout + result.stderr if include_stderr else result.stdout
 
 
-def verify_labels(labels, project):
+def verify_labels(labels, project, run_id=None):
     if labels.get('io.factorio-connect.owner') != OWNER or labels.get('com.docker.compose.project') != project:
         raise ValueError('target ownership labels do not match this demo project')
+    if run_id is not None and labels.get('io.factorio-connect.test-run') != run_id:
+        raise ValueError('target ownership does not match the current test run')
 
 
 def state_path():
@@ -85,7 +91,7 @@ def compose(env):
     return command
 
 
-def owned_targets(project):
+def owned_targets(project, run_id=None):
     targets = []
     for kind, noun in [('container', 'ps'), ('volume', 'volume'), ('network', 'network')]:
         command = ['docker', 'ps', '-aq'] if kind == 'container' else ['docker', noun, 'ls', '-q']
@@ -94,9 +100,47 @@ def owned_targets(project):
             items = json.loads(run(['docker', kind, 'inspect', *ids]))
             for item in items:
                 labels = (item.get('Config') or {}).get('Labels') if kind == 'container' else item.get('Labels')
-                verify_labels(labels or {}, project)
+                verify_labels(labels or {}, project, run_id)
                 targets.append((kind, item.get('Id') or item['Name']))
     return targets
+
+
+@contextmanager
+def exclusive_test_project(project):
+    """Hold one local-user project lock from empty-project inspection to cleanup."""
+    if not test_project(project):
+        raise ValueError('exclusive test lifecycle requires an isolated test project')
+    directory = Path('/tmp') / ('factorio-connect-test-locks-' + str(os.getuid()))
+    directory.mkdir(mode=0o700, exist_ok=True)
+    info = directory.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+        raise ValueError('test lock directory ownership or permissions mismatch')
+    descriptor = os.open(directory / (project + '.lock'), os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(descriptor)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o600:
+            raise ValueError('test lock file ownership or permissions mismatch')
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raise RuntimeError('isolated project has an active test run; refusing concurrent entry') from None
+        if owned_targets(project):
+            raise RuntimeError('isolated test project already exists; refusing to reuse or discard existing resources')
+        yield str(uuid.uuid4())
+    finally:
+        os.close(descriptor)
+    # Keep the lock inode: unlinking it would allow two locks on the same name.
+
+
+def cleanup_test_project(env):
+    """Inspect every target first, then delete only this run's enumerated IDs."""
+    project, run_id = env.get('FACTORIO_PROJECT'), env.get('FACTORIO_TEST_RUN')
+    if not project or not test_project(project) or not run_id:
+        raise ValueError('cleanup requires an isolated project and current test run identity')
+    targets = owned_targets(project, run_id=run_id)
+    for kind, target in targets:
+        command = ['docker', 'rm', '-f', target] if kind == 'container' else ['docker', kind, 'rm', target]
+        run(command, environment=env)
 
 
 def private_write(path, value):

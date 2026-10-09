@@ -14,6 +14,8 @@ def test_committed_change_reaches_applied_snapshot(smoke_report):
 
 
 def test_rolled_back_change_never_notifies_or_appears(smoke_report):
+    assert smoke_report['background_cron_threads'] == 0
+    assert smoke_report['automation_rules_active'] == 14
     rollback = smoke_report['rollback']
     assert rollback['distinct_transaction_name'] == 'Assembly committed live'
     assert rollback['applied_name'] == 'Assembly committed live'

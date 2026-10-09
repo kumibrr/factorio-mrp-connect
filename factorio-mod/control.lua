@@ -8,6 +8,7 @@ local layout=require('scripts.layout')
 local surface=require('scripts.surface')
 local gui=require('scripts.gui')
 local connection,view,rendered_revision
+local connection_reason='startup'
 local function owned()
   storage.factorio_connect_surface=storage.factorio_connect_surface or {stations={},links={}}
   return storage.factorio_connect_surface
@@ -36,7 +37,7 @@ local function connect()
   local token=settings.global['fc-pairing-token'].value
   if token=='' then connection=nil; return end
   local current=state.get()
-  connection=receiver.new({token=token,initial_nonce='client:'..game.tick,
+  connection=receiver.new({token=token,initial_nonce='client:'..game.tick,restart_reason=connection_reason,
     revision=current and current.revision or 0,
     snapshot_read_at=current and current.snapshot and current.snapshot.meta.source_read_at or nil,
     binding=current and current.source_id and {source_id=current.source_id,scope_id=current.scope_id} or nil}, {
@@ -48,11 +49,11 @@ local function connect()
     apply=function(snapshot,revision,shape) return state.accept(snapshot,revision,shape) end
   })
 end
-script.on_init(function() state.init();owned();connection=nil;view=nil;rendered_revision=nil end)
-script.on_load(function() connection=nil;view=nil;rendered_revision=nil end)
-script.on_configuration_changed(function() state.init();owned();connection=nil;view=nil;rendered_revision=nil end)
+script.on_init(function() state.init();owned();connection=nil;view=nil;rendered_revision=nil;connection_reason='startup' end)
+script.on_load(function() connection=nil;view=nil;rendered_revision=nil;connection_reason='load' end)
+script.on_configuration_changed(function() state.init();owned();connection=nil;view=nil;rendered_revision=nil;connection_reason='configuration_changed' end)
 script.on_event(defines.events.on_runtime_mod_setting_changed,function(event)
-  if event.setting=='fc-bridge-port' or event.setting=='fc-pairing-token' then connection=nil end
+  if event.setting=='fc-bridge-port' or event.setting=='fc-pairing-token' then connection=nil;connection_reason='settings_changed' end
 end)
 script.on_event(defines.events.on_tick,function(event)
   if not supported() then connection=nil; return end
@@ -90,7 +91,7 @@ script.on_event(defines.events.on_gui_click,function(event)
     surface.clear(owned());owned().warnings={}
     state.get().entity_slots={}
     -- reset_connection(nil) preserves the old binding; create a fresh receiver.
-    connection=nil;view=nil;rendered_revision=nil
+    connection=nil;view=nil;rendered_revision=nil;connection_reason='local_repair'
     refresh(false)
     gui.show(player,view,nil)
   end

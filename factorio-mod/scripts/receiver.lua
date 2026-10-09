@@ -10,6 +10,7 @@ function M.new(config,callbacks)
   local snapshot_read_at=config.snapshot_read_at
   local binding=config.binding
   local challenged_source,challenged_scope
+  local restart_reason=config.restart_reason or 'startup'
   local api={}
   local function send(kind,fields)
     local row={type=kind}
@@ -20,7 +21,8 @@ function M.new(config,callbacks)
     for k,v in pairs(fields or {}) do row[k]=v end
     callbacks.send(row)
   end
-  local function restart(tick)
+  local function restart(tick,reason)
+    restart_reason=reason or restart_reason
     session,assembly,completed=nil,nil,nil
     snapshot_received,heartbeat_received=false,false; heartbeat_sequence=-1; heartbeat_count=0
     challenged_source,challenged_scope=nil,nil
@@ -43,18 +45,18 @@ function M.new(config,callbacks)
   function api.status()
     return {verified=session~=nil and snapshot_received and heartbeat_count>=4 and api.health~=nil
         and api.health.source_ok and api.health.source_read_at~=nil and api.health.source_read_at==snapshot_read_at,
-      connected=session~=nil,stage=stage,revision=highest,health=heartbeat_received and api.health or nil,
+      connected=session~=nil,stage=stage,restart_reason=restart_reason,revision=highest,health=heartbeat_received and api.health or nil,
       last_heartbeat_tick=last_heartbeat}
   end
   function api.reset_connection(new_binding)
     binding=new_binding or binding
-    restart(last_tick or 0)
+    restart(last_tick or 0,'reset')
   end
   function api.on_tick(tick,ticks_played)
-    if last_tick and last_played and ticks_played-last_played~=tick-last_tick then restart(tick) end
+    if last_tick and last_played and ticks_played-last_played~=tick-last_tick then restart(tick,'resume') end
     last_tick,last_played=tick,ticks_played
     if not stage then restart(tick) end
-    if session and tick-(last_heartbeat or started)>=900 then restart(tick) end
+    if session and tick-(last_heartbeat or started)>=900 then restart(tick,'timeout') end
     if assembly and tick-assembly.started>=600 then assembly=nil; if session then send('resync_request') end end
     if not session then hello(tick) end
   end
@@ -72,7 +74,7 @@ function M.new(config,callbacks)
     end
     if not same(row) then return end
     -- Check timeout here as well, before a buffered packet can revive authority.
-    if tick-(last_heartbeat or started)>=900 then restart(tick); return end
+    if tick-(last_heartbeat or started)>=900 then restart(tick,'timeout'); return end
     if row.type=='heartbeat' then
       if row.sequence<=heartbeat_sequence then return end
       heartbeat_sequence=row.sequence; heartbeat_count=math.min(4,heartbeat_count+1); last_heartbeat=tick; heartbeat_received=true

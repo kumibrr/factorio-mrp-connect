@@ -63,7 +63,19 @@ def validate_compose_version(version):
         raise ValueError('Docker Compose >=2.24.0 is required for optional env_file')
 
 
+def odoo_configuration(env, *, backend_test=False):
+    text = (ROOT / 'deploy/odoo.conf').read_text()
+    for flag, label, setting in [('FACTORIO_TEST_WEBHOOK_DEBUG', 'webhook debug', 'log_handler = odoo.addons.base.models.ir_actions:DEBUG'),
+                                 ('FACTORIO_TEST_DISABLE_CRON', 'cron control', 'max_cron_threads = 0')]:
+        if env.get(flag):
+            if env[flag] != '1' or not backend_test or env.get('FACTORIO_PROJECT') != 'factorio-connect-tests' or env.get('FACTORIO_TEST_CONTEXT') != 'factorio-connect-tests':
+                raise ValueError(label + ' requires explicit isolated backend-test context')
+            text += '\n' + setting + '\n'
+    return text
+
+
 def preflight(env, *, backend_test=False):
+    odoo_configuration(env, backend_test=backend_test)  # Refuse test diagnostics before Docker or provisioning.
     if platform.system() != 'Linux' or sys.version_info < (3, 10):
         raise ValueError('requires Linux and host Python 3.10 or newer')
     if platform.machine() not in ('x86_64', 'amd64'):
@@ -131,7 +143,7 @@ def provision(state, env, *, rotate=False, backend_test=False):
     target_database = database(env)
     command = compose(env)
     configuration = state / 'odoo.conf'
-    private_write(configuration, (ROOT / 'deploy/odoo.conf').read_text())
+    private_write(configuration, odoo_configuration(env, backend_test=backend_test))
     configuration.chmod(0o644)  # Contains no credentials; Odoo uid100 must read it.
     env['ODOO_CONFIG_FILE'] = str(configuration)
     run(command + ['up', '-d', '--wait', 'db'], environment=env)

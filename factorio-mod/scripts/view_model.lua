@@ -49,17 +49,28 @@ local function cycles(rows,getdeps,warnings,kind)
 end
 local function sync(snapshot,status)
   status=status or {};local h=status.health or {}
+  local transport
+  if status.connected and status.verified then transport='Connected'
+  elseif status.connected or status.stage=='ack' or (status.stage=='challenge' and status.restart_reason~='timeout') then transport='Resynchronizing'
+  else transport='Disconnected' end
+  -- Only a current bridge report establishes source age. Running ticks never
+  -- turn a retained source timestamp into a wall-clock freshness claim.
+  local stale=h.source_age_seconds~=nil and h.source_age_seconds>90
+  local freshness=h.source_age_seconds==nil and 'Source freshness Unknown' or (stale and 'Stale source data' or 'Source age within threshold')
+  local failed=h.source_ok==false
   local text
   if not snapshot then text='Awaiting snapshot'
-  elseif h.source_ok==false then text='Source read failed'
-  elseif not status.verified then text='Unverified connection'
+  elseif transport~='Connected' then text=transport
+  elseif stale then text='Stale source data'
+  elseif failed then text='Source read failed'
   elseif h.source_age_seconds==nil then text='Source freshness Unknown'
-  elseif h.source_age_seconds>90 then text='Stale source data'
   elseif h.refreshing then text='Refreshing source'
   else text='Healthy' end
   return {label=text,source_read_at=snapshot and snapshot.meta.source_read_at or 'Unknown',
     source_age_label=M.number(h.source_age_seconds),last_success_at=M.plain(h.last_success_at),
-    error=M.plain(h.last_error),verified=status.verified==true,connected=status.connected==true,refreshing=h.refreshing==true}
+    error=M.plain(h.last_error),verified=status.verified==true,connected=status.connected==true,refreshing=h.refreshing==true,
+    transport_label=transport,stage=M.plain(status.stage),restart_reason=M.plain(status.restart_reason),
+    freshness_label=freshness,stale=stale,source_failed=failed}
 end
 function M.build(snapshot,status)
   local v={centers={},center_ids={},orders={},stock={},links={},warnings={},sync=sync(snapshot,status),palette=M.palette}

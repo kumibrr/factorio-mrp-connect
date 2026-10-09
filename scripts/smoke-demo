@@ -15,7 +15,7 @@ import time
 import urllib.request
 import urllib.error
 
-from demo_common import ROOT, OWNER, compose, environment, owned_targets, pins, run, verify_state
+from demo_common import ROOT, OWNER, cleanup_test_project, compose, environment, exclusive_test_project, owned_targets, pins, run, verify_state
 
 PROJECT = 'factorio-connect-tests'
 
@@ -34,20 +34,22 @@ def wait(predicate, seconds=35, *, transient=()):
 
 
 def isolated(output):
+    with exclusive_test_project(PROJECT) as run_id:
+        isolated_run(output, run_id)
+
+
+def isolated_run(output, run_id):
     # Never reuse a report or an existing seeded project. Verify all labels before
     # mutation; discard only resources belonging to this exact test project.
     output = output.resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     state = Path(tempfile.mkdtemp(prefix='factorio-connect-tests-'))
     evidence = Path(tempfile.mkdtemp(prefix='live-smoke-', dir=output.parent))
-    env = dict(os.environ, **pins(), FACTORIO_PROJECT=PROJECT, FACTORIO_STATE_DIR=str(state),
+    env = dict(os.environ, **pins(), FACTORIO_PROJECT=PROJECT, FACTORIO_TEST_RUN=run_id, FACTORIO_TEST_DISABLE_CRON='1', FACTORIO_STATE_DIR=str(state),
                FACTORIO_TEST_CONTEXT=PROJECT, ODOO_DATABASE='factorio_tests',
                ODOO_SUBNET='172.29.0.0/24', ODOO_GATEWAY='172.29.0.1',
                ODOO_HTTP_PORT='8169', BRIDGE_HTTP_PORT='8875', BRIDGE_UDP_PORT='34300', GAME_UDP_PORT='34301')
     env.pop('FACTORIO_COMPOSE_OVERRIDE', None)
-    targets = owned_targets(PROJECT)
-    if targets:
-        raise RuntimeError('isolated test project already exists; refusing to reseed or discard an active run')
     command = compose(env)
     client = None
     odoo = None
@@ -63,13 +65,14 @@ def isolated(output):
         env.update(ODOO_CONFIG_FILE=str(state / 'odoo.conf'))
         command = compose(env)
         verify_state(state, PROJECT)
-        owned_targets(PROJECT)
+        owned_targets(PROJECT, run_id=run_id)
         odoo = run(command + ['ps', '-q', 'odoo'], environment=env).strip()
         key = hashlib.sha256(b''.join((ROOT / file).read_bytes() for file in ['deploy/Dockerfile.tests', 'bridge/requirements-dev.lock', 'deploy/versions.env'])).hexdigest()[:20]
         image = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', 'factorio-connect-tests:' + key]).strip()
         receiver_file = evidence / 'receiver.json'
         client = run(['docker', 'run', '-d', '--network', 'container:' + odoo,
                       '--label', 'io.factorio-connect.owner=' + OWNER, '--label', 'com.docker.compose.project=' + PROJECT,
+                      '--label', 'io.factorio-connect.test-run=' + run_id,
                       '--read-only', '--tmpfs', '/tmp:rw,noexec,nosuid,size=64m',
                       '-v', str(ROOT) + ':/repo:ro', '-v', str(state) + ':/state:ro', '-v', str(evidence) + ':/evidence',
                       '--entrypoint', 'python', image, '/repo/tests/e2e/udp_client.py', '/state', '/evidence/receiver.json']).strip()
@@ -100,7 +103,9 @@ def isolated(output):
             view = receiver()
             return view if view.get('snapshot') and center(view) == name else None
 
-        ids = shell("from dataclasses import asdict\nfrom odoo.addons.factorio_connect_demo.seed.service import verify_demo\nr=verify_demo(env,baseline=True)\nprint('FC_LIVE '+json.dumps({'seed':asdict(r),'center':env.ref('factorio_connect_demo.wc_assembly').id,'motor':env.ref('factorio_connect_demo.product_motor').id,'shortage':env.ref('factorio_connect_demo.mo_shortage').id}))\nenv.cr.rollback()")
+        ids = shell("from dataclasses import asdict\nfrom odoo.tools import config\nfrom odoo.addons.factorio_connect.models.automation import MODELS\nfrom odoo.addons.factorio_connect_demo.seed.service import verify_demo\nr=verify_demo(env,baseline=True)\nassert config['max_cron_threads']==0\nactive=sum(env.ref('factorio_connect_demo.automation_'+key).active for key in MODELS)\nassert active==14\nprint('FC_LIVE '+json.dumps({'cron_threads':config['max_cron_threads'],'rules_active':active,'seed':asdict(r),'center':env.ref('factorio_connect_demo.wc_assembly').id,'motor':env.ref('factorio_connect_demo.product_motor').id,'shortage':env.ref('factorio_connect_demo.mo_shortage').id}))\nenv.cr.rollback()")
+        report['background_cron_threads'] = ids['cron_threads']
+        report['automation_rules_active'] = ids['rules_active']
         report['seed'] = ids['seed']['invariants']
         report['seed_counts'] = ids['seed']['counts']
         wait(lambda: receiver().get('status', {}).get('verified'))
@@ -184,17 +189,15 @@ def isolated(output):
     finally:
         report['finished_at'] = datetime.now(timezone.utc).isoformat()
         output.write_text(json.dumps(report, indent=2) + '\n')
-        if paused:
-            run(['docker', 'unpause', odoo])
-        if client:
-            run(['docker', 'stop', client])
-            run(['docker', 'rm', client])
-        targets = owned_targets(PROJECT)
-        if targets and (state / 'state-owner.json').exists():
-            env = environment(state, context=env)
-            command = compose(env)
-            run(command + ['--profile', 'bridge', 'down', '-v'], environment=env)
-        shutil.rmtree(state)
+        try:
+            if env.get('FACTORIO_TEST_WEBHOOK_DEBUG') == '1':
+                (evidence / 'odoo.log').write_text(run(command + ['logs', '--no-color', 'odoo'], environment=env, include_stderr=True))
+        finally:
+            owned_targets(PROJECT, run_id=run_id)  # Verify all targets before any cleanup mutation.
+            if paused:
+                run(['docker', 'unpause', odoo])
+            cleanup_test_project(env)
+            shutil.rmtree(state)
     print(json.dumps(report, indent=2))
 
 

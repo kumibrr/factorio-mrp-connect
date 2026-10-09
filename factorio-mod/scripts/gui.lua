@@ -9,7 +9,9 @@ end
 local function synchronization(view)
   return {'Synchronization: '..view.sync.label..' | Source read '..view.sync.source_read_at,
     'Reported source age '..view.sync.source_age_label..' seconds | Last successful source read '..view.sync.last_success_at,
-    'Source error '..view.sync.error..' | Refreshing '..tostring(view.sync.refreshing)..' | Connection verified '..tostring(view.sync.verified)}
+    'Source error '..view.sync.error..' | Refreshing '..tostring(view.sync.refreshing)..' | Connection verified '..tostring(view.sync.verified),
+    'Transport: '..view.sync.transport_label..' | Stage '..view.sync.stage..' | Restart reason '..view.sync.restart_reason,
+    'Source freshness: '..view.sync.freshness_label..' | '..(view.sync.source_failed and 'Source read failed' or 'No current source failure reported')}
 end
 local function progress(parent,value,caption,color)
   label(parent,caption,color)
