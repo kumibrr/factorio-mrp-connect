@@ -4,8 +4,43 @@ repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 # This file contains only committed, nonsecret image/version pins.
 source "$repo_root/deploy/versions.env"
 mode=${1:-}
+if [[ "$mode" == odoo ]]; then
+  shift
+  mkdir -p "$repo_root/runtime"
+  if [[ ${1:---tags} != --tags || ( $# != 0 && $# != 2 ) ]]; then
+    echo "Usage: ./scripts/check odoo [--tags TAGS]" >&2
+    exit 2
+  fi
+  export ODOO_IMAGE POSTGRES_IMAGE
+  export ODOO_DATABASE=factorio_tests ODOO_HTTP_PORT=8169
+  export ODOO_SUBNET=172.29.0.0/24 ODOO_GATEWAY=172.29.0.1
+  export POSTGRES_PASSWORD=${FACTORIO_TEST_DB_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')}
+  compose=(docker compose -p factorio-connect-tests -f "$repo_root/deploy/compose.yaml")
+  cleanup() { "${compose[@]}" down -v >/dev/null; }
+  trap cleanup EXIT
+  "${compose[@]}" up -d db
+  "${compose[@]}" run --rm odoo odoo -d factorio_tests -i factorio_connect --without-demo=True \
+    --test-enable --stop-after-init --test-tags "${2:-/factorio_connect}" --log-level=test
+  "${compose[@]}" run --rm -T odoo odoo shell -d factorio_tests --no-http <<'PYPROBE'
+from odoo.addons.factorio_connect.tests.json2_probe import bootstrap
+bootstrap(env)
+PYPROBE
+  "${compose[@]}" up -d odoo
+  probe_file=$(mktemp "$repo_root/runtime/odoo-json2-XXXXXX.json")
+  "${compose[@]}" exec -T odoo python3 /mnt/extra-addons/factorio_connect/tests/json2_probe.py > "$probe_file"
+  # Validate the actual HTTP response in the pinned bridge test environment.
+  "$repo_root/scripts/check" bridge -q tests/test_contracts.py
+  build_key=$(cat "$repo_root/deploy/Dockerfile.tests" "$repo_root/bridge/requirements-dev.lock" "$repo_root/deploy/versions.env" | sha256sum | cut -c1-20)
+  probe_image=$(docker image inspect --format '{{.Id}}' "factorio-connect-tests:$build_key")
+  docker run --rm --network none --read-only -e PYTHONPATH=/repo/bridge/src \
+    -v "$repo_root:/repo:ro" --entrypoint python "$probe_image" -c \
+    'import json,sys; from factorio_bridge.contracts import validate_snapshot; from jsonschema import Draft202012Validator; p=json.load(open(sys.argv[1])); Draft202012Validator(json.load(open("/repo/contracts/snapshot-v1.schema.json"))).validate(p); s=validate_snapshot(p); print("Live bearer JSON2 response: schema and graph valid; company=%d; MOs=%d; WOs=%d; business rows unchanged; bearer write denied HTTP403" % (s.meta.company_id,len(s.manufacturing_orders),len(s.work_orders)))' \
+    "/repo/runtime/$(basename "$probe_file")"
+  rm -f "$probe_file"
+  exit
+fi
 if [[ "$mode" != bridge ]]; then
-  echo 'Usage: ./scripts/check bridge [pytest-arguments...]' >&2
+  echo 'Usage: ./scripts/check bridge [pytest-arguments...] | odoo --tags TAGS' >&2
   exit 2
 fi
 shift

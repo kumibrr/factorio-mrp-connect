@@ -1,0 +1,31 @@
+id,name,model_id,group_id/id,operation,domain
+config_admin,Configuration administrator,factorio.integration.config,base.group_system,crud,
+reader_factorio_integration_config,Factory reader factorio.integration.config,factorio.integration.config,factorio_connect.group_factory_reader,r,"[('id', '=', user.factorio_config_id.id)]"
+reader_res_users,Factory reader res.users,res.users,factorio_connect.group_factory_reader,r,"[('id', '=', user.id)]"
+reader_res_company,Factory reader res.company,res.company,factorio_connect.group_factory_reader,r,"[('id', '=', user.factorio_config_id.company_id.id)]"
+reader_stock_warehouse,Factory reader stock.warehouse,stock.warehouse,factorio_connect.group_factory_reader,r,"[('id', '=', user.factorio_config_id.warehouse_id.id)]"
+reader_stock_location,Factory reader stock.location,stock.location,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id]), '|', ('id', 'child_of', user.factorio_config_id.warehouse_id.view_location_id.id), ('usage', 'in', ['production', 'inventory', 'supplier', 'customer', 'transit'])]"
+reader_stock_picking_type,Factory reader stock.picking.type,stock.picking.type,factorio_connect.group_factory_reader,r,"[('warehouse_id', '=', user.factorio_config_id.warehouse_id.id)]"
+reader_mrp_production,Factory reader mrp.production,mrp.production,factorio_connect.group_factory_reader,r,"[('company_id', '=', user.factorio_config_id.company_id.id), ('picking_type_id.warehouse_id', '=', user.factorio_config_id.warehouse_id.id)]"
+reader_mrp_workorder,Factory reader mrp.workorder,mrp.workorder,factorio_connect.group_factory_reader,r,"[('company_id', '=', user.factorio_config_id.company_id.id), ('production_id.picking_type_id.warehouse_id', '=', user.factorio_config_id.warehouse_id.id)]"
+reader_mrp_production_group,Factory reader mrp.production.group,mrp.production.group,factorio_connect.group_factory_reader,r,"[('production_ids.picking_type_id.warehouse_id', '=', user.factorio_config_id.warehouse_id.id)]"
+reader_stock_move,Factory reader stock.move,stock.move,factorio_connect.group_factory_reader,r,"[('company_id', '=', user.factorio_config_id.company_id.id), '|', ('location_id', 'child_of', user.factorio_config_id.warehouse_id.view_location_id.id), ('location_dest_id', 'child_of', user.factorio_config_id.warehouse_id.view_location_id.id)]"
+reader_stock_move_line,Factory reader stock.move.line,stock.move.line,factorio_connect.group_factory_reader,r,"[('company_id', '=', user.factorio_config_id.company_id.id), '|', ('location_id', 'child_of', user.factorio_config_id.warehouse_id.view_location_id.id), ('location_dest_id', 'child_of', user.factorio_config_id.warehouse_id.view_location_id.id)]"
+reader_stock_quant,Factory reader stock.quant,stock.quant,factorio_connect.group_factory_reader,r,"[('company_id', '=', user.factorio_config_id.company_id.id), ('location_id', 'child_of', user.factorio_config_id.warehouse_id.view_location_id.id), ('location_id.usage', '=', 'internal')]"
+reader_mrp_workcenter,Factory reader mrp.workcenter,mrp.workcenter,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_mrp_bom,Factory reader mrp.bom,mrp.bom,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_mrp_bom_line,Factory reader mrp.bom.line,mrp.bom.line,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_mrp_routing_workcenter,Factory reader mrp.routing.workcenter,mrp.routing.workcenter,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_product_product,Factory reader product.product,product.product,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_product_template,Factory reader product.template,product.template,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_resource_resource,Factory reader resource.resource,resource.resource,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_resource_calendar,Factory reader resource.calendar,resource.calendar,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_resource_calendar_attendance,Factory reader resource.calendar.attendance,resource.calendar.attendance,factorio_connect.group_factory_reader,r,"[('calendar_id.company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_resource_calendar_leaves,Factory reader resource.calendar.leaves,resource.calendar.leaves,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_mrp_workcenter_capacity,Factory reader mrp.workcenter.capacity,mrp.workcenter.capacity,factorio_connect.group_factory_reader,r,"[('workcenter_id.company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_mrp_workcenter_productivity,Factory reader mrp.workcenter.productivity,mrp.workcenter.productivity,factorio_connect.group_factory_reader,r,"[('company_id', 'in', [False, user.factorio_config_id.company_id.id])]"
+reader_mrp_workcenter_productivity_loss,Factory reader mrp.workcenter.productivity.loss,mrp.workcenter.productivity.loss,factorio_connect.group_factory_reader,r,[]
+reader_mrp_workcenter_productivity_loss_type,Factory reader mrp.workcenter.productivity.loss.type,mrp.workcenter.productivity.loss.type,factorio_connect.group_factory_reader,r,[]
+reader_uom_uom,Factory reader uom.uom,uom.uom,factorio_connect.group_factory_reader,r,[]
+reader_decimal_precision,Factory reader decimal.precision,decimal.precision,factorio_connect.group_factory_reader,r,[]
+reader_product_category,Factory reader product.category,product.category,factorio_connect.group_factory_reader,r,[]

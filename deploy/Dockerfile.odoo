@@ -1,0 +1,4 @@
+ARG ODOO_IMAGE
+FROM ${ODOO_IMAGE}
+COPY odoo-addons /mnt/extra-addons
+COPY deploy/odoo.conf /etc/odoo/odoo.conf
