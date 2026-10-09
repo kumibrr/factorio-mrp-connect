@@ -283,3 +283,96 @@ def test_isolated_environment_retains_context_and_owned_credentials(tmp_path, mo
     assert env['ODOO_DATABASE'] == 'factorio_tests'
     assert env['POSTGRES_PASSWORD'] == (state / 'db-password').read_text().strip()
     assert env['FACTORIO_COMPOSE_OVERRIDE'] == str(state / 'backend.compose.yaml')
+
+
+def test_deployed_smoke_unavailable_endpoint_emits_failed_report():
+    env = dict(os.environ, ODOO_GATEWAY='127.0.0.1', BRIDGE_HTTP_PORT='0', NO_PROXY='127.0.0.1')
+    result = subprocess.run([sys.executable, str(ROOT / 'scripts/smoke-demo')], env=env, capture_output=True, text=True)
+    assert result.stdout.strip().startswith('{'), 'outage must emit a structured report'
+    report = json.loads(result.stdout)
+    assert result.returncode != 0
+    assert report['context'] == 'deployed-read-only-health'
+    assert report['passed'] is False
+    for field in ('source_read_at', 'published_revision', 'applied_revision', 'commit_delivery_seconds', 'seed', 'health'):
+        assert report[field] is None
+    assert 'ConnectionRefusedError' in report['error']
+    assert not result.stderr
+
+
+@pytest.mark.parametrize('mode,diagnostic', [
+    ('http_error', '503'), ('invalid_json', 'JSONDecodeError'),
+    ('invalid_utf8', 'UnicodeDecodeError'), ('invalid_shape', 'ValueError'),
+    ('missing_fields', 'KeyError'), ('invalid_types', 'ValueError'),
+    ('timeout', 'TimeoutError'),
+])
+def test_deployed_smoke_expected_health_failures_are_bounded_and_nonsecret(mode, diagnostic):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Thread
+    import time
+    secret = 'private-response-credential'
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+        def do_GET(self):
+            if mode == 'timeout':
+                time.sleep(3.5)
+            self.send_response(503 if mode == 'http_error' else 200, secret)
+            self.end_headers()
+            payloads = {
+                'invalid_json': secret.encode(), 'invalid_utf8': b'\xff',
+                'invalid_shape': b'[]', 'missing_fields': json.dumps({'credential': secret}).encode(),
+                'invalid_types': json.dumps({'source_ok': 'true', 'latest_revision': 1, 'applied_revision': 1, 'source_read_at': None, 'credential': secret}).encode(),
+            }
+            try:
+                self.wfile.write(payloads.get(mode, secret.encode()))
+            except OSError:
+                pass  # The real timeout intentionally closes the client socket.
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        env = dict(os.environ, ODOO_GATEWAY='127.0.0.1', BRIDGE_HTTP_PORT=str(server.server_port), NO_PROXY='127.0.0.1')
+        result = subprocess.run([sys.executable, str(ROOT / 'scripts/smoke-demo')], env=env, capture_output=True, text=True)
+        assert result.stdout.strip().startswith('{'), 'expected failure must emit a structured report'
+        report = json.loads(result.stdout)
+        assert result.returncode != 0 and report['passed'] is False
+        assert report['context'] == 'deployed-read-only-health'
+        for field in ('source_read_at', 'published_revision', 'applied_revision', 'commit_delivery_seconds', 'seed', 'health'):
+            assert report[field] is None
+        assert diagnostic in report['error'] and len(report['error']) <= 160
+        assert secret not in result.stdout + result.stderr
+        assert not result.stderr
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+@pytest.mark.parametrize('source_ok,applied,expected_exit', [(True, 4, 0), (True, 3, 1), (False, 4, 1)])
+def test_deployed_smoke_preserves_known_health_and_acknowledgments(source_ok, applied, expected_exit):
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    from threading import Thread
+    health = {'source_ok': source_ok, 'latest_revision': 4, 'applied_revision': applied, 'source_read_at': '2026-10-09T18:00:00Z'}
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(json.dumps(health).encode())
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        env = dict(os.environ, ODOO_GATEWAY='127.0.0.1', BRIDGE_HTTP_PORT=str(server.server_port), NO_PROXY='127.0.0.1')
+        result = subprocess.run([sys.executable, str(ROOT / 'scripts/smoke-demo')], env=env, capture_output=True, text=True)
+        report = json.loads(result.stdout)
+        assert result.returncode == expected_exit and not result.stderr
+        assert report['passed'] is (expected_exit == 0)
+        assert report['source_read_at'] == '2026-10-09T18:00:00Z'
+        assert report['published_revision'] == 4 and report['applied_revision'] == applied
+        assert report['health'] == health and report['error'] is None
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
