@@ -143,10 +143,15 @@ local function validate(v,shape)
   local stock={}
   for _,s in ipairs(v.stock) do
     product_unit(s); quantities(s,{'on_hand_qty','reserved_qty','free_qty'}); consistent(s,'free_qty','on_hand_qty','reserved_qty',false)
-    local key=s.product_id..':'..s.location_id; assert(not stock[key],'duplicate stock'); stock[key]=true
+    stock[s.product_id]=stock[s.product_id] or {}
+    assert(not stock[s.product_id][s.location_id],'duplicate stock'); stock[s.product_id][s.location_id]=true
   end
 end
-function M.validate(v,shape) local ok,err=pcall(validate,v,shape); return ok,ok and nil or tostring(err) end
+function M.validate(v,shape)
+  local ok,err=pcall(validate,v,shape)
+  if ok then return true,nil end
+  return false,tostring(err)
+end
 local base={version='one',token='text',hello_nonce='text',session_id='uuid',source_id='uuid',scope_id='scope',type='text'}
 local wire_fields={hello={challenge_id='uuid?'},hello_challenge={challenge_id='uuid'},hello_ack={},snapshot_begin={revision='id',snapshot_id='text',chunk_count='id',byte_length='id'},snapshot_chunk={revision='id',snapshot_id='text',index='seq',data='str'},chunk_ack={snapshot_id='text',index='seq'},snapshot_applied={revision='id',snapshot_id='text'},heartbeat={sequence='seq',source_read_at='utc?',source_age_seconds='qty?',source_ok='bool',last_success_at='utc?',last_error='str?',refreshing='bool'},heartbeat_ack={sequence='seq'},resync_request={}}
 function M.wire(v,shape)
@@ -176,6 +181,7 @@ function M.wire(v,shape)
     if v.byte_length then assert(v.byte_length<=262144,'snapshot byte length') end
     if v.index then assert(v.index<512,'chunk index') end
   end)
-  return ok,ok and nil or tostring(err)
+  if ok then return true,nil end
+  return false,tostring(err)
 end
 return M

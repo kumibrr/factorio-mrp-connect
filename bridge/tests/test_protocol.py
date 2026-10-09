@@ -135,3 +135,64 @@ def test_shared_raw_snapshot_shape_vectors():
         else:
             with pytest.raises(ValidationError):
                 Snapshot.model_validate_json(case['json'])
+
+
+def test_shared_bridge_handshake_vector_outcomes():
+    import asyncio
+    from hashlib import sha256
+    from pathlib import Path
+    from types import SimpleNamespace
+    from pydantic import SecretStr
+    from factorio_bridge.udp import UdpDelivery
+    from test_coordinator import FakeClock
+    from test_udp import Network
+    vectors=json.loads((Path(__file__).resolve().parents[2]/'contracts/fixtures/wire-v1.json').read_text())
+    async def scenario():
+        for case in vectors['cases']:
+            if case.get('direction')!='bridge':
+                continue
+            context=case['context']; refreshes=[]
+            config=SimpleNamespace(pairing_token=SecretStr(context['token']),source_id=UUID(context['source_id']),scope_id=context['scope_id'],game_udp_port=34199)
+            d=UdpDelivery(config,FakeClock()); network=Network(); d._transport=network
+            async def refresh(): refreshes.append('source-read')
+            d.on_reconnect=refresh
+            d.latest=stored(json.loads(vectors['canonical_snapshot_utf8']),vectors['expected_revision'])
+            if context['session_id']:
+                d.session=Session(config.pairing_token.get_secret_value(),context['pending_hello_nonce'],UUID(context['session_id']),config.source_id,config.scope_id,accepted_revision=context['applied_revision'])
+                d._prepare(encode_frames(d.latest,d.session))
+                d.session.next_index=1
+                d.session.pending={0:(0,1)}
+                d.session.begin_sent_at=0
+                d.session.begin_attempts=2
+            pending=context.get('pending_challenge')
+            if pending:
+                d._challenge_order=pending['order']
+                d._pending_challenges[pending['challenge_id']]=(sha256(pending['initial_nonce'].encode()).digest(),pending['issued_at'],pending['order'])
+            before=d.session
+            transfer=None if before is None else before.snapshot_id
+            frames=None if before is None else before.frames
+            applied=d.applied_revision
+            progress=None if before is None else (before.next_index,dict(before.pending),before.begin_sent_at,before.begin_attempts)
+            d.handle_packet(case['payload_json'].encode(),('127.0.0.1',34199))
+            await asyncio.sleep(0)
+            responses=[r for r in network.rows if r['type'] in ('hello_challenge','hello_ack')]
+            if responses and responses[0]['type']=='hello_challenge':
+                outcome='issue_challenge_preserve_authority_and_source_read'
+                assert d.session is before and d.applied_revision==applied and refreshes==[],case['name']
+                if before is not None:
+                    assert d.session.snapshot_id==transfer and d.session.frames is frames,case['name']
+                    assert (before.next_index,before.pending,before.begin_sent_at,before.begin_attempts)==progress,case['name']
+                assert responses[0]['hello_nonce']==case['payload']['hello_nonce']
+                assert responses[0]['session_id'] is None
+            elif responses and responses[0]['type']=='hello_ack':
+                outcome='bind_fresh_session_and_request_initial_source_read'
+                assert d.session is not before and d.applied_revision is None and refreshes==['source-read'],case['name']
+                assert str(d.session.session_id)==responses[0]['session_id']
+                assert d.session.hello_nonce==case['payload']['challenge_id']==case['payload']['hello_nonce']
+            else:
+                outcome='ignore_without_replacing_session'
+                assert d.session is before and d.applied_revision==applied and refreshes==[],case['name']
+            assert bool(responses)==case['accepted'],case['name']
+            assert outcome==case['outcome'],case['name']
+            await d.stop()
+    asyncio.run(scenario())
