@@ -109,22 +109,23 @@ For Compose maintenance in this shell, define this credential-loading wrapper:
 
 ```sh
 demo() {
-  python3 - "$@" <<'PY'
+  python3 -c '
 import os, sys
-sys.path.insert(0, 'scripts')
+sys.path.insert(0, "scripts")
 from demo_common import compose, environment, state_path
 env = environment(state_path())
-env['ODOO_CONFIG_FILE'] = str(state_path() / 'odoo.conf')
-os.execvpe('docker', compose(env) + sys.argv[1:], env)
-PY
+env["ODOO_CONFIG_FILE"] = str(state_path() / "odoo.conf")
+os.execvpe("docker", compose(env) + sys.argv[1:], env)
+' "$@"
 }
 demo --profile bridge ps
 demo logs --tail 50 bridge
 ```
 
 The wrapper passes credentials through the process environment, never command
-arguments or output. Service logs apply the common redactor. Avoid dumping the
-container environment. The standalone `factorio_connect` addon also needs the
+arguments or output. The `python3 -c` launcher preserves caller stdin for
+ORM heredocs and binary restore streams. Service logs apply the common redactor.
+Avoid dumping the container environment. The standalone `factorio_connect` addon also needs the
 single common redactor package (`bridge/src/factorio_connect_common`) on Odoo's
 Python path; Compose mounts it automatically. Installing the addon alone
 without that prerequisite is unsupported.

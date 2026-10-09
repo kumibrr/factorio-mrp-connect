@@ -222,3 +222,29 @@ def test_preflight_rejects_docker_desktop_socket():
     module = load_bootstrap()
     with pytest.raises(ValueError, match='Desktop'):
         module.validate_daemon('unix:///home/operator/.docker/desktop/docker.sock', [], 'linux')
+
+
+@pytest.mark.parametrize('business_input', [b'ORM heredoc sentinel\n', b'backup\x00dump\xffbytes\n'])
+def test_documented_compose_wrapper_preserves_business_stdin(tmp_path, business_input):
+    import re
+    guide = (ROOT / 'docs/local-demo.md').read_text()
+    wrapper = re.search(r'demo\(\) \{\n.*?\n\}', guide, re.DOTALL).group()
+    scripts = tmp_path / 'scripts'
+    scripts.mkdir()
+    # Isolate only Docker and credential loading. The exact documented bash/Python
+    # launcher and a real harmless stdin-echo child are executed unchanged.
+    (scripts / 'demo_common.py').write_text('''
+import os, sys
+from pathlib import Path
+execute = os.execvpe
+os.execvpe = lambda executable, args, env: execute(sys.executable, [sys.executable, '-c', 'import sys; sys.stdout.buffer.write(sys.stdin.buffer.read())'], env)
+def compose(env): return ['docker', 'compose']
+def environment(state): return dict(os.environ)
+def state_path(): return Path('/nonexistent/harmless-fixture')
+''')
+    payload = tmp_path / 'business-input'
+    payload.write_bytes(business_input)
+    with payload.open('rb') as source:
+        result = subprocess.run(['bash', '-c', wrapper + '\ndemo exec -T odoo harmless-child'], cwd=tmp_path, stdin=source, capture_output=True)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == business_input
