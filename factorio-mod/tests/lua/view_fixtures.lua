@@ -1,0 +1,71 @@
+local f=require('fixtures')
+local M={}
+function M.snapshot() return f.native(f.read('contracts/fixtures/pumpworks-v1.json')) end
+function M.module(name)
+  local ok,m=pcall(require,'scripts.'..name)
+  assert(ok and type(m)=='table',name..' must implement the operator view')
+  return m
+end
+function M.healthy()
+  return {verified=true,connected=true,health={source_ok=true,source_read_at='2026-10-09T12:00:00Z',source_age_seconds=0,refreshing=false}}
+end
+function M.engine()
+  local entities,renders={},{}
+  local surface={name='odoo-factory',valid=true}
+  surface.create_entity=function(spec)
+    local e={name=spec.name,position=spec.position,valid=true,surface=surface,unit_number=#entities+1}
+    e.destroy=function() e.valid=false end
+    entities[#entities+1]=e; return e
+  end
+  surface.can_place_entity=function() return true end
+  _G.game={surfaces={},create_surface=function() game.surfaces['odoo-factory']=surface;return surface end}
+  _G.rendering={}
+  for _,method in ipairs({'draw_text','draw_line'}) do
+    rendering[method]=function(spec)
+      local r={valid=true,text=spec.text,color=spec.color,target=spec.target}
+      r.destroy=function() r.valid=false end
+      renders[#renders+1]=r; return r
+    end
+  end
+  _G.defines={direction={east=4,south=8,west=12,north=0}}
+  return surface,entities,renders
+end
+local function element(spec,parent)
+  local e={valid=true,children={},style={},parent=parent}
+  for k,v in pairs(spec or {}) do e[k]=v end
+  e.add=function(s)
+    local child=element(s,e); e.children[#e.children+1]=child
+    if s.name then e[s.name]=child end
+    return child
+  end
+  e.destroy=function()
+    for _,child in ipairs(e.children) do child.destroy() end
+    e.valid=false;if parent and e.name then parent[e.name]=nil end
+  end
+  e.clear=function() for _,child in ipairs(e.children) do child.destroy() end;e.children={} end
+  e.auto_center=function() end
+  e.select_all=function() e.selected=true end
+  e.focus=function() e.focused=true end
+  return e
+end
+function M.player()
+  local p={index=1,gui={screen=element(),top=element()},surface={name='nauvis'}}
+  p.teleport=function(position,surface) p.position=position; p.surface=surface; return true end
+  return p
+end
+function M.texts(root)
+  local out={}
+  local function visit(e)
+    if not e.valid then return end
+    if type(e.caption)=='string' then out[#out+1]=e.caption end
+    if type(e.text)=='string' then out[#out+1]=e.text end
+    for _,child in ipairs(e.children) do visit(child) end
+  end
+  visit(root); return table.concat(out,'\n')
+end
+function M.find(root,name)
+  if not root.valid then return nil end
+  if root.name==name then return root end
+  for _,child in ipairs(root.children) do local e=M.find(child,name); if e then return e end end
+end
+return M
