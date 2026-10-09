@@ -53,6 +53,7 @@ class RefreshCoordinator:
         self._refreshing = False
         self._wake = asyncio.Event()
         self._tasks = []
+        self._startup = None
 
     @property
     def health(self) -> BridgeHealth:
@@ -62,18 +63,36 @@ class RefreshCoordinator:
     async def start(self):
         if self._tasks:
             return
+        if self._startup is None:
+            self._startup = asyncio.create_task(self._load_and_start())
+        startup = self._startup
+        try:
+            await asyncio.shield(startup)
+        except asyncio.CancelledError:
+            startup.cancel()
+            await asyncio.gather(startup, return_exceptions=True)
+            raise
+        finally:
+            if startup.done() and self._startup is startup:
+                self._startup = None
+
+    async def _load_and_start(self):
         self._source_ok = False
         self._success_at = None
         self._error = None
         self._failures = 0
         self._retry_at = None
-        self.latest = self.store.load_latest()
+        self.latest = await self._store_call(self.store.load_latest)
         if self.latest is not None:
             await self.publish(self.latest)
         await self.request_initial()
         self._tasks = [asyncio.create_task(self._worker()), asyncio.create_task(self._reconcile())]
 
     async def stop(self):
+        startup = self._startup
+        if startup is not None:
+            startup.cancel()
+            await asyncio.gather(startup, return_exceptions=True)
         for task in self._tasks:
             task.cancel()
         await asyncio.gather(*self._tasks, return_exceptions=True)
@@ -100,6 +119,25 @@ class RefreshCoordinator:
             await self.notify('reconciliation')
             self._immediate = True
             self._wake.set()
+
+    async def _store_call(self, operation, *args):
+        # SQLite may wait for another writer; keep that wait off the HTTP loop.
+        pending = asyncio.create_task(asyncio.to_thread(operation, *args))
+        try:
+            return await asyncio.shield(pending)
+        except asyncio.CancelledError:
+            # Threads cannot be cancelled. Drain the transaction before allowing
+            # shutdown/restart, and never publish a cancelled worker's result.
+            while not pending.done():
+                try:
+                    await asyncio.shield(pending)
+                except asyncio.CancelledError:
+                    continue
+                except Exception:
+                    break
+            if not pending.cancelled():
+                pending.exception()
+            raise
 
     async def _wait_until(self, due):
         delay = max(0, due - self.clock.monotonic())
@@ -137,7 +175,7 @@ class RefreshCoordinator:
             self._refreshing = True
             try:
                 snapshot = await self.fetch()
-                stored = self.store.save(snapshot)
+                stored = await self._store_call(self.store.save, snapshot)
             except asyncio.CancelledError:
                 raise
             except Exception as error:

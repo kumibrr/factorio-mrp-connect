@@ -40,6 +40,13 @@ async def settle():
         await asyncio.sleep(0)
 
 
+async def wait_until(condition):
+    async with asyncio.timeout(2):
+        while not condition():
+            await asyncio.sleep(.001)
+    await settle()
+
+
 def rig(tmp_path, payload, fetch):
     clock = FakeClock()
     published = []
@@ -57,13 +64,14 @@ def test_bursts_debounce_but_do_not_starve(tmp_path, pumpworks_payload):
             return Snapshot.model_validate(pumpworks_payload)
         clock, published, store, coordinator = rig(tmp_path, pumpworks_payload, fetch)
         await coordinator.start()
-        await settle()
+        await wait_until(lambda: len(published) == 1)
         assert starts == [0]
         await coordinator.notify('event')
         await settle()
         await clock.advance(.249)
         assert starts == [0]
         await clock.advance(.001)
+        await wait_until(lambda: len(published) == 2)
         assert starts == [0, .25]
         await coordinator.notify('event')
         await settle()
@@ -101,11 +109,11 @@ def test_changes_during_read_trigger_followup(tmp_path, pumpworks_payload):
         await clock.advance(.3)
         assert calls == 1
         release.set()
-        await settle()
+        await wait_until(lambda: len(published) == 2)
         assert calls == 2
         assert [row.revision for row in published] == [1, 2]
         await coordinator.request_initial()
-        await settle()
+        await wait_until(lambda: len(published) == 3)
         assert calls == 3
         await coordinator.stop()
     asyncio.run(scenario())
@@ -123,10 +131,11 @@ def test_reconciliation_recovers_missed_event(tmp_path, pumpworks_payload):
             return Snapshot.model_validate(payload)
         clock, published, store, coordinator = rig(tmp_path, pumpworks_payload, fetch)
         await coordinator.start()
-        await settle()
+        await wait_until(lambda: len(published) == 1)
         await clock.advance(59.999)
         assert len(published) == 1
         await clock.advance(.001)
+        await wait_until(lambda: len(published) == 2)
         assert len(published) == 2
         assert published[-1].snapshot.products[0].name == 'Changed 2'
         await clock.advance(60)
@@ -146,7 +155,7 @@ def test_retries_keep_old_source_timestamp(tmp_path, pumpworks_payload):
             return Snapshot.model_validate(pumpworks_payload)
         clock, published, store, coordinator = rig(tmp_path, pumpworks_payload, fetch)
         await coordinator.start()
-        await settle()
+        await wait_until(lambda: len(published) == 1)
         original = coordinator.latest.snapshot.meta.source_read_at
         fail = True
         await coordinator.request_initial()
@@ -165,6 +174,7 @@ def test_retries_keep_old_source_timestamp(tmp_path, pumpworks_payload):
         assert coordinator.health.source_age_seconds > 90
         fail = False
         await clock.advance(30)
+        await wait_until(lambda: coordinator.health.source_ok)
         assert coordinator.health.source_ok
         assert coordinator.latest.revision == 2
         await coordinator.stop()
@@ -212,8 +222,157 @@ def test_reconnect_requests_immediate_read_even_during_retry(tmp_path, pumpworks
         assert calls == 1
         failing = False
         await coordinator.request_initial()
-        await settle()
+        await wait_until(lambda: coordinator.health.source_ok)
         assert calls == 2
         assert coordinator.health.source_ok
         await coordinator.stop()
+    asyncio.run(scenario())
+
+
+def test_sqlite_contention_keeps_webhook_fast_and_shutdown_drains_save(tmp_path, pumpworks_payload):
+    """A real competing writer must not stall HTTP or outlive coordinator stop."""
+    import sqlite3
+    import threading
+    import time
+    import httpx
+    from factorio_bridge.app import create_app
+    from test_webhooks import settings
+
+    async def scenario():
+        fetched = asyncio.Event()
+        async def fetch():
+            fetched.set()
+            await asyncio.sleep(0)
+            return Snapshot.model_validate(pumpworks_payload)
+        clock, published, store, coordinator = rig(tmp_path, pumpworks_payload, fetch)
+        locked, release = threading.Event(), threading.Event()
+        def hold_writer():
+            with sqlite3.connect(store.path) as connection:
+                connection.execute('BEGIN IMMEDIATE')
+                locked.set()
+                release.wait(.6)
+                connection.rollback()
+        writer = threading.Thread(target=hold_writer)
+        writer.start()
+        await asyncio.to_thread(locked.wait)
+        app = create_app(settings(tmp_path), coordinator)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+            async def request_during_save():
+                await fetched.wait()
+                started = time.monotonic()
+                await asyncio.sleep(.01)
+                response = await client.post('/odoo/events/test-token', json={'_model': 'mrp.workorder', '_id': 1, '_action': 'Factorio workorder'})
+                return response, time.monotonic() - started
+            request = asyncio.create_task(request_during_save())
+            try:
+                await coordinator.start()
+                response, elapsed = await request
+                assert response.status_code == 202
+                print(f'Writer contention: webhook 202 in {elapsed * 1000:.3f} ms')
+                assert elapsed < .25
+                assert not release.is_set()
+                assert coordinator.health.refreshing
+                stopping = asyncio.create_task(coordinator.stop())
+                await asyncio.sleep(.01)
+                assert not stopping.done()
+                assert published == []
+                release.set()
+                await asyncio.wait_for(stopping, 2)
+                assert store.load_latest().revision == 1
+                assert published == []
+                assert not coordinator.health.refreshing
+            finally:
+                release.set()
+                await coordinator.stop()
+                await asyncio.to_thread(writer.join)
+    asyncio.run(scenario())
+
+
+def test_startup_cache_contention_does_not_block_health(tmp_path, pumpworks_payload):
+    import sqlite3
+    import threading
+    import time
+    import httpx
+    from factorio_bridge.app import create_app
+    from test_webhooks import settings
+
+    async def scenario():
+        async def fetch():
+            await asyncio.Event().wait()
+        clock, published, store, coordinator = rig(tmp_path, pumpworks_payload, fetch)
+        store.save(Snapshot.model_validate(pumpworks_payload))
+        locked, release = threading.Event(), threading.Event()
+        def hold_exclusive():
+            with sqlite3.connect(store.path) as connection:
+                connection.execute('BEGIN EXCLUSIVE')
+                locked.set()
+                release.wait(.6)
+                connection.rollback()
+        writer = threading.Thread(target=hold_exclusive)
+        writer.start()
+        await asyncio.to_thread(locked.wait)
+        app = create_app(settings(tmp_path), coordinator)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+            started = time.monotonic()
+            startup = asyncio.create_task(coordinator.start())
+            try:
+                await asyncio.sleep(.01)
+                health = await client.get('/healthz')
+                assert health.status_code == 200
+                elapsed = time.monotonic() - started
+                print(f'Startup exclusive-lock contention: health 200 in {elapsed * 1000:.3f} ms')
+                assert elapsed < .25
+                assert not startup.done()
+                release.set()
+                await asyncio.wait_for(startup, 2)
+                assert coordinator.latest.revision == 1
+                assert not coordinator.health.source_ok
+            finally:
+                release.set()
+                await startup
+                await coordinator.stop()
+                await asyncio.to_thread(writer.join)
+    asyncio.run(scenario())
+
+
+def test_stop_during_startup_drains_cache_read_without_starting_worker(tmp_path, pumpworks_payload):
+    import sqlite3
+    import threading
+    async def scenario():
+        calls = []
+        async def fetch():
+            calls.append('unexpected after shutdown')
+            return Snapshot.model_validate(pumpworks_payload)
+        clock, published, store, coordinator = rig(tmp_path, pumpworks_payload, fetch)
+        store.save(Snapshot.model_validate(pumpworks_payload))
+        locked, release = threading.Event(), threading.Event()
+        def hold_exclusive():
+            with sqlite3.connect(store.path) as connection:
+                connection.execute('BEGIN EXCLUSIVE')
+                locked.set()
+                release.wait(.6)
+                connection.rollback()
+        writer = threading.Thread(target=hold_exclusive)
+        writer.start()
+        await asyncio.to_thread(locked.wait)
+        startup = asyncio.create_task(coordinator.start())
+        try:
+            await asyncio.sleep(.01)
+            stopping = asyncio.create_task(coordinator.stop())
+            await asyncio.sleep(.01)
+            assert not stopping.done()
+            release.set()
+            await asyncio.wait_for(stopping, 2)
+            try:
+                await startup
+            except asyncio.CancelledError:
+                pass
+            assert calls == []
+            assert published == []
+        finally:
+            release.set()
+            startup.cancel()
+            await asyncio.gather(startup, return_exceptions=True)
+            await coordinator.stop()
+            await asyncio.to_thread(writer.join)
     asyncio.run(scenario())

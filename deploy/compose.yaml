@@ -20,11 +20,13 @@ services:
       HOST: db
       USER: odoo
       PASSWORD: ${POSTGRES_PASSWORD:?set local PostgreSQL password}
+      PYTHONPATH: /opt/factorio-connect-common
     ports:
       - '127.0.0.1:${ODOO_HTTP_PORT:-8069}:8069'
     volumes:
       - odoo-data:/var/lib/odoo
       - ../odoo-addons:/mnt/extra-addons:ro
+      - ../bridge/src/factorio_connect_common:/opt/factorio-connect-common/factorio_connect_common:ro
       - ./odoo.conf:/etc/odoo/odoo.conf:ro
     command: ['odoo', '-d', '${ODOO_DATABASE:-factorio_demo}']
 networks:

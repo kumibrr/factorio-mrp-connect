@@ -1,4 +1,6 @@
 ARG ODOO_IMAGE
 FROM ${ODOO_IMAGE}
+ENV PYTHONPATH=/opt/factorio-connect-common
+COPY bridge/src/factorio_connect_common /opt/factorio-connect-common/factorio_connect_common
 COPY odoo-addons /mnt/extra-addons
 COPY deploy/odoo.conf /etc/odoo/odoo.conf
