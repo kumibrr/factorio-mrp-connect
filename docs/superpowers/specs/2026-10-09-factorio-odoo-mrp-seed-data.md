@@ -2,8 +2,8 @@
 
 Date: 2026-10-09
 
-Status: normative companion to the [system design](2026-10-09-factorio-odoo-mrp-design.md),
-for written-spec review. Values below are required seed outcomes, not claims
+Status: approved normative companion to the [system design](2026-10-09-factorio-odoo-mrp-design.md).
+Values below are required seed outcomes, not claims
 that an Odoo instance has already been seeded.
 
 ## Fixture identity and initialization

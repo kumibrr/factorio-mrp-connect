@@ -2,8 +2,9 @@
 
 Date: 2026-10-09
 
-Status: written specification for user review. The user approved the design
-scope through grilling rounds Q1–Q14. This document specifies future
+Status: written specification approved by the user on 2026-10-09. The user
+approved the design scope through grilling rounds Q1–Q14 and approved the
+written artifacts by asking to continue. This document specifies future
 implementation; runtime behavior has not yet been tested.
 
 ## Intent and agreed scope
@@ -389,7 +390,8 @@ verification, and any unexecuted checks.
 
 ## Review and next stage
 
-This specification and its seed companion are the review artifacts. After the
-user approves the written documents, create the implementation plan with the
-Superpowers writing-plans workflow and select its execution method. The current
-delivery does not claim a running mod or a provisioned Odoo instance.
+This specification and its seed companion are approved. The
+[implementation plan](../plans/2026-10-09-factorio-odoo-mrp.md) is the next review
+artifact, including selection of the execution method under the Superpowers
+writing-plans workflow. The current delivery does not claim a running mod or a
+provisioned Odoo instance.

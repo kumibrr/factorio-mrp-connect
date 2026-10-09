@@ -17,6 +17,8 @@ Odoo addons, Docker setup, and runnable demo are implementation deliverables.
 - [Complete demo seed specification](docs/superpowers/specs/2026-10-09-factorio-odoo-mrp-seed-data.md):
   factory records, products, BOMs, inventory, production scenarios, seeding
   workflow, expected balances, and verification walkthrough.
+- [Implementation plan](docs/superpowers/plans/2026-10-09-factorio-odoo-mrp.md):
+  nine tasks with shared interfaces, tests, runtime acceptance, and documentation.
 
 The first demo targets Linux, Odoo 20 Community in Docker Compose, and a
 separately installed single-player Factorio 2.0 client. Odoo webhooks trigger
