@@ -46,6 +46,9 @@ class UdpDelivery:
         self._publish_wake = asyncio.Event()
         self._retry_at = 0
         self._used_nonces = set()
+        self._pending_challenges = {}
+        self._challenge_order = 0
+        self._confirmed_order = 0
         self._nonce_cap_logged = False
         self._reconnect_tasks = set()
         self._data_sent = deque()
@@ -180,17 +183,52 @@ class UdpDelivery:
                 return
             if message.source_id is not None and (message.source_id != self.settings.source_id or message.scope_id != self.settings.scope_id):
                 return
-            if self.session is not None and message.hello_nonce == self.session.hello_nonce:
-                # Lost hello_ack must not reset an active assembly or session.
-                self._send(encode_message(self.session.envelope('hello_ack')))
+            now = self.clock.monotonic()
+            self._pending_challenges = {key: row for key, row in self._pending_challenges.items()
+                                        if now - row[1] < 10}
+            challenge_id = None if message.challenge_id is None else str(message.challenge_id)
+            if challenge_id is not None and message.hello_nonce != challenge_id:
                 return
-            nonce_digest = sha256(message.hello_nonce.encode('utf-8')).digest()
-            if nonce_digest in self._used_nonces:
+            if challenge_id is not None and self.session is not None and message.hello_nonce == self.session.hello_nonce:
+                # Current final retries remain idempotent after consumption/cap.
+                self._send(encode_message(self.session.envelope('hello_ack')))
                 return
             if len(self._used_nonces) >= _NONCE_HISTORY_LIMIT:
                 if not self._nonce_cap_logged:
                     logging.getLogger(__name__).warning('Handshake nonce history is full; restart bridge to accept a new nonce')
                     self._nonce_cap_logged = True
+                return
+            if challenge_id is None:
+                initial_digest = sha256(message.hello_nonce.encode('utf-8')).digest()
+                pending = next(((key, row) for key, row in self._pending_challenges.items()
+                                if row[0] == initial_digest), None)
+                if pending is None:
+                    if len(self._pending_challenges) >= 8:
+                        return
+                    challenge_id = str(uuid4())
+                    order = self._challenge_order + 1
+                else:
+                    challenge_id, row = pending
+                    order = row[2]
+                # Budget final authority controls before promising admission.
+                try:
+                    self._preflight_control(self._new_session(challenge_id))
+                    response = encode_message(dict(version=1, type='hello_challenge',
+                        token=self.settings.pairing_token.get_secret_value(), hello_nonce=message.hello_nonce,
+                        session_id=None, source_id=str(self.settings.source_id), scope_id=self.settings.scope_id,
+                        challenge_id=challenge_id))
+                except ValueError:
+                    return
+                if pending is None:
+                    self._challenge_order = order
+                    self._pending_challenges[challenge_id] = (initial_digest, now, order)
+                self._send(response)
+                return
+            pending = self._pending_challenges.get(challenge_id)
+            if pending is None or pending[2] <= self._confirmed_order:
+                return
+            nonce_digest = sha256(message.hello_nonce.encode('utf-8')).digest()
+            if nonce_digest in self._used_nonces:
                 return
             session = self._new_session(message.hello_nonce)
             try:
@@ -199,6 +237,8 @@ class UdpDelivery:
                 response = encode_message(session.envelope('hello_ack'))
             except ValueError:
                 return
+            del self._pending_challenges[challenge_id]
+            self._confirmed_order = pending[2]
             self.session = session
             self._used_nonces.add(nonce_digest)
             self._send(response)
@@ -243,7 +283,7 @@ class UdpDelivery:
         # a bounded error label, even when the initial cache/source is absent.
         maximum_date = datetime.max.replace(tzinfo=timezone.utc)
         health = BridgeHealth(False, None, maximum_date, '\0' * _ERROR_LABEL_CHARACTERS, False)
-        encode_message(self._heartbeat_payload(session, 18446744073709551615,
+        encode_message(self._heartbeat_payload(session, 9007199254740991,
                                                health, maximum_date, 1.7976931348623157e308))
 
     def tick(self):

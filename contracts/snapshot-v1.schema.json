@@ -12,6 +12,7 @@
         },
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
@@ -29,11 +30,13 @@
         },
         "product_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Product Id",
           "type": "integer"
         },
         "unit_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Unit Id",
           "type": "integer"
         }
@@ -56,6 +59,7 @@
           "anyOf": [
             {
               "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
               "type": "integer"
             },
             {
@@ -66,6 +70,7 @@
         },
         "product_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Product Id",
           "type": "integer"
         },
@@ -76,6 +81,7 @@
         },
         "unit_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Unit Id",
           "type": "integer"
         }
@@ -94,12 +100,14 @@
       "properties": {
         "center_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Center Id",
           "type": "integer"
         },
         "dependency_ids": {
           "items": {
             "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
             "type": "integer"
           },
           "title": "Dependency Ids",
@@ -107,10 +115,12 @@
         },
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
         "sequence": {
+          "maximum": 9007199254740991,
           "minimum": 0,
           "title": "Sequence",
           "type": "integer"
@@ -142,6 +152,7 @@
         "backorder_sequence": {
           "anyOf": [
             {
+              "maximum": 9007199254740991,
               "minimum": 0,
               "type": "integer"
             },
@@ -179,6 +190,7 @@
           "anyOf": [
             {
               "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
               "type": "integer"
             },
             {
@@ -189,6 +201,7 @@
         },
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
@@ -222,6 +235,7 @@
         },
         "product_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Product Id",
           "type": "integer"
         },
@@ -277,6 +291,7 @@
         },
         "unit_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Unit Id",
           "type": "integer"
         }
@@ -335,11 +350,13 @@
         },
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
         "mo_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Mo Id",
           "type": "integer"
         },
@@ -355,6 +372,7 @@
         },
         "product_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Product Id",
           "type": "integer"
         },
@@ -370,11 +388,13 @@
         },
         "source_location_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Source Location Id",
           "type": "integer"
         },
         "unit_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Unit Id",
           "type": "integer"
         },
@@ -418,6 +438,7 @@
         },
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
@@ -428,6 +449,7 @@
         },
         "unit_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Unit Id",
           "type": "integer"
         }
@@ -446,6 +468,7 @@
       "properties": {
         "company_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Company Id",
           "type": "integer"
         },
@@ -465,7 +488,7 @@
           "type": "integer"
         },
         "scope_id": {
-          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "pattern": "^company:(?:[1-9][0-9]{0,14}|[1-8][0-9]{15}|900[0-6][0-9]{12}|90070[0-9]{11}|90071[0-8][0-9]{10}|900719[0-8][0-9]{9}|9007199[0-1][0-9]{8}|90071992[0-4][0-9]{7}|900719925[0-3][0-9]{6}|9007199254[0-6][0-9]{5}|90071992547[0-3][0-9]{4}|9007199254740[0-8][0-9]{2}|90071992547409[0-8][0-9]{1}|9007199254740990[0-9]{0}|9007199254740991)/warehouse:(?:[1-9][0-9]{0,14}|[1-8][0-9]{15}|900[0-6][0-9]{12}|90070[0-9]{11}|90071[0-8][0-9]{10}|900719[0-8][0-9]{9}|9007199[0-1][0-9]{8}|90071992[0-4][0-9]{7}|900719925[0-3][0-9]{6}|9007199254[0-6][0-9]{5}|90071992547[0-3][0-9]{4}|9007199254740[0-8][0-9]{2}|90071992547409[0-8][0-9]{1}|9007199254740990[0-9]{0}|9007199254740991)$",
           "title": "Scope Id",
           "type": "string"
         },
@@ -481,6 +504,7 @@
         },
         "warehouse_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Warehouse Id",
           "type": "integer"
         }
@@ -507,6 +531,7 @@
         },
         "location_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Location Id",
           "type": "integer"
         },
@@ -516,6 +541,7 @@
         },
         "product_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Product Id",
           "type": "integer"
         },
@@ -526,6 +552,7 @@
         },
         "unit_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Unit Id",
           "type": "integer"
         }
@@ -546,6 +573,7 @@
       "properties": {
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
@@ -579,6 +607,7 @@
           "anyOf": [
             {
               "exclusiveMinimum": 0,
+              "maximum": 9007199254740991,
               "type": "integer"
             },
             {
@@ -605,6 +634,7 @@
         },
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
@@ -654,12 +684,14 @@
         },
         "center_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Center Id",
           "type": "integer"
         },
         "dependency_ids": {
           "items": {
             "exclusiveMinimum": 0,
+            "maximum": 9007199254740991,
             "type": "integer"
           },
           "title": "Dependency Ids",
@@ -691,16 +723,19 @@
         },
         "id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Id",
           "type": "integer"
         },
         "mo_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Mo Id",
           "type": "integer"
         },
         "operation_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Operation Id",
           "type": "integer"
         },
@@ -758,12 +793,14 @@
           "title": "Required Qty"
         },
         "sequence": {
+          "maximum": 9007199254740991,
           "minimum": 0,
           "title": "Sequence",
           "type": "integer"
         },
         "unit_id": {
           "exclusiveMinimum": 0,
+          "maximum": 9007199254740991,
           "title": "Unit Id",
           "type": "integer"
         }

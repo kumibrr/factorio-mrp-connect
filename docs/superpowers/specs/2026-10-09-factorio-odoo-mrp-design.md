@@ -236,12 +236,44 @@ become archived only after a complete authoritative snapshot is accepted.
 
 ## UDP protocol and recovery
 
-Protocol v1 has `hello`, `hello_ack`, `snapshot_begin`, `snapshot_chunk`,
+Protocol v1 has `hello`, `hello_challenge`, `hello_ack`, `snapshot_begin`, `snapshot_chunk`,
 `chunk_ack`, `snapshot_applied`, `heartbeat`, `heartbeat_ack`, and
 `resync_request` messages.
 Every envelope identifies its protocol, pairing token, negotiated session,
 source scope, and snapshot revision where applicable. Session changes require
-a handshake response to the current request; old-session packets are ignored.
+a four-message handshake: initial `hello` (unbound session), bridge
+`hello_challenge` (echoed initial nonce, null session, fresh bridge UUID), final
+`hello` (`challenge_id` and `hello_nonce` both equal that UUID), then `hello_ack`
+(echoed final nonce and fresh session UUID). Restoring identical saves can repeat
+initial Lua nonces and clocks; the bridge's external challenge supplies freshness.
+The client awaits the exact current stage and nonce. A challenge does not bind a
+source, replace authority, or trigger a source read. Only final acknowledgment
+establishes authority. Old-session packets are ignored.
+
+Pending challenges are bounded to eight and expire after ten bridge wall-clock
+seconds; repeated pending initial requests receive the same challenge. A final
+confirmation older than already confirmed newer issuance cannot displace it.
+The bridge retains up to 4096 confirmed nonce digests without eviction for its
+service lifetime; current final retries remain idempotent at that cap. New
+admission fails closed with an actionable bridge-restart diagnostic. Source
+binding persists only with a completely validated snapshot and changes only by
+explicit local re-pairing.
+
+All integer source IDs, revisions, sequences, and numeric scope components are
+bounded to 9007199254740991 for exact Lua 5.2 representation. Integer fields
+require JSON integer tokens. Finite business quantities retain their existing
+signed/nonnegative domains. The receiver inspects raw JSON shape before native
+decode because Factorio maps null to nil and cannot distinguish empty arrays
+from objects in decoded tables. The shape guard preserves required-field
+presence, nullable source evidence, and integer token types. Quantities must be
+JSON numbers; source timestamps must be UTC strings. The supported snapshot
+stream is the bridge's canonical `snapshot_bytes` encoding. Rounding and
+stock/demand consistency use exact decimal rational arithmetic over canonical
+numeric lexemes, with the existing 1e-8 unit tolerance, including very large and
+very small finite quantities. Noncanonical numeric spellings that round to a
+different native double are outside that stream's parity claim; native-only
+normalized tables use shortest decimal representations that roundtrip their
+values.
 Snapshot revisions increase within a session. Duplicates are harmless, and
 lower revisions never replace newer data.
 
@@ -286,8 +318,25 @@ advances during a tick pause. Once updates resume, show resynchronizing until
 the current handshake/heartbeat and latest snapshot establish health. A frozen
 pause screen itself can retain its previous indicator. The UI must not claim
 wall-clock freshness using game ticks alone. Save/load retains the last view,
-but reload begins unverified until the handshake completes.
-[Game tick semantics](https://lua-api.factorio.com/latest/classes/LuaGameScript.html).
+but reload begins unverified. Every new/load/resume handshake resets a
+transient verification fence: acknowledge heartbeats immediately and accept
+validated snapshots immediately, but remain resynchronizing until four distinct
+strictly increasing current-session heartbeat sequences have arrived and the
+latest reports `source_ok` with `source_read_at` exactly matching the accepted
+snapshot. Healthy recovery verification can take up to twenty seconds at the
+five-second heartbeat cadence. Source outage/mismatched evidence cannot verify.
+
+This fence assumes trusted localhost packet loss/reordering/buffering. The
+bridge's fifteen-second acknowledgment timeout permits at most three buffered
+unacknowledged heartbeat emissions from a still-current session; a fourth
+establishes live bridge progress. Current final hello retries do not extend that
+liveness timeout. A cached challenge can reuse current authority via idempotent
+acknowledgment, but cannot by itself claim verified health. This is not generic
+adversarial replay security: a pairing-token holder can forge source data, and
+identical complete transcripts remain indistinguishable to deterministic Lua
+without entropy outside the restored save. Game ticks provide no wall-clock
+freshness guarantee.
+[Game tick semantics](https://lua-api.factorio.com/2.0.77/classes/LuaGameScript.html).
 
 ## Factorio visualization
 

@@ -79,6 +79,10 @@ def test_udp_lifecycle_reconnect_and_health_revisions(tmp_path, pumpworks_payloa
             coordinator._retry_at = 30
             delivery.handle_packet(json.dumps(dict(version=1, type='hello', token='pairing-secret', hello_nonce='initial')).encode(), ('127.0.0.1', 34201))
             await settle()
+            assert not coordinator.dirty and coordinator._retry_at == 30
+            challenge = next(iter(delivery._pending_challenges))
+            delivery.handle_packet(json.dumps(dict(version=1, type='hello', token='pairing-secret', hello_nonce=challenge, challenge_id=challenge)).encode(), ('127.0.0.1', 34201))
+            await settle()
             assert coordinator.dirty and coordinator._retry_at is None
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
                 health = (await client.get('/healthz')).json()
@@ -95,6 +99,9 @@ def test_udp_lifecycle_reconnect_and_health_revisions(tmp_path, pumpworks_payloa
                 health = (await client.get('/healthz')).json()
                 assert health['applied_revision'] == 1
                 delivery.handle_packet(json.dumps(dict(version=1, type='hello', token='pairing-secret', hello_nonce='reconnect')).encode(), ('127.0.0.1', 34201))
+                assert (await client.get('/healthz')).json()['applied_revision'] == 1
+                challenge = next(iter(delivery._pending_challenges))
+                delivery.handle_packet(json.dumps(dict(version=1, type='hello', token='pairing-secret', hello_nonce=challenge, challenge_id=challenge)).encode(), ('127.0.0.1', 34201))
                 assert (await client.get('/healthz')).json()['applied_revision'] is None
         assert delivery._transport is None
         assert delivery.session is None

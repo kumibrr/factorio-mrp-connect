@@ -18,6 +18,8 @@ class Network:
         self.rows = []
     def sendto(self, data, addr):
         self.rows.append(json.loads(data))
+    def close(self):
+        pass
 
 
 def rig(tmp_path, payload):
@@ -34,7 +36,33 @@ def rig(tmp_path, payload):
 def hello(delivery, **updates):
     row = dict(version=1, type='hello', token='pairing-secret', hello_nonce='fresh')
     row.update(updates)
+    # Existing delivery cases exercise a complete handshake; challenge cases
+    # separately exercise each individual message and ordering.
+    requested = row['hello_nonce']
+    finals = getattr(delivery, '_test_final_hellos', {})
+    if requested in finals:
+        row.update(finals[requested])
+    previous = len(delivery._transport.rows) if hasattr(delivery._transport, 'rows') else 0
     delivery.handle_packet(json.dumps(row).encode(), ('127.0.0.1', delivery.settings.game_udp_port))
+    if hasattr(delivery._transport, 'rows'):
+        responses = delivery._transport.rows[previous:]
+        challenges = [r for r in responses if r['type'] == 'hello_challenge']
+        if challenges:
+            challenge = challenges[-1]['challenge_id']
+            final = dict(hello_nonce=challenge, challenge_id=challenge)
+            finals[requested] = final
+            delivery._test_final_hellos = finals
+            row.update(final)
+            delivery.handle_packet(json.dumps(row).encode(), ('127.0.0.1', delivery.settings.game_udp_port))
+    else:
+        digest = __import__('hashlib').sha256(requested.encode()).digest()
+        challenge = next((key for key, pending in delivery._pending_challenges.items() if pending[0] == digest), None)
+        if challenge:
+            final = dict(hello_nonce=challenge, challenge_id=challenge)
+            finals[requested] = final
+            delivery._test_final_hellos = finals
+            row.update(final)
+            delivery.handle_packet(json.dumps(row).encode(), ('127.0.0.1', delivery.settings.game_udp_port))
 
 
 def ack(delivery, kind, allow_partial=False, **fields):
@@ -136,7 +164,7 @@ def test_heartbeat_ack_timeout_negotiates_new_session(tmp_path, pumpworks_payloa
     assert delivery.applied_revision is None
     hello(delivery, hello_nonce='new-nonce')
     assert delivery.session.session_id != old
-    assert delivery.session.hello_nonce == 'new-nonce'
+    assert delivery.session.hello_nonce == delivery._test_final_hellos['new-nonce']['hello_nonce']
 
 
 def test_restart_cache_timestamp_is_preserved(tmp_path, pumpworks_payload):
@@ -186,7 +214,10 @@ def test_loopback_delivery_with_fixed_packet_loss_and_reordering(tmp_path, pumpw
                 self.begin_seen = 0
             def datagram_received(self, data, addr):
                 row = json.loads(data)
-                if row['type'] == 'hello_ack':
+                if row['type'] == 'hello_challenge':
+                    challenge = row['challenge_id']
+                    self.transport.sendto(json.dumps(dict(version=1, type='hello', token='pairing-secret', hello_nonce=challenge, challenge_id=challenge)).encode(), addr)
+                elif row['type'] == 'hello_ack':
                     self.session = row
                 elif row['type'] == 'snapshot_begin':
                     self.begin_seen += 1
@@ -421,7 +452,7 @@ def test_long_nonce_without_snapshot_is_rejected_and_pump_keeps_running(tmp_path
         delivery = UdpDelivery(configured, clock)
         await delivery.start()
         try:
-            hello(delivery, hello_nonce='x' * 700)
+            hello(delivery, hello_nonce='x' * 790)
             assert delivery.session is None
             await clock.advance(5)
             assert not delivery._task.done()
@@ -448,7 +479,7 @@ def test_delayed_old_hello_preserves_new_session_transfer_and_application(tmp_pa
     assert delivery.applied_revision == 1
     hello(delivery, hello_nonce='nonce-C')
     assert delivery.session.session_id != session_id
-    assert delivery.session.hello_nonce == 'nonce-C'
+    assert delivery.session.hello_nonce == delivery._test_final_hellos['nonce-C']['hello_nonce']
 
 
 def test_heartbeat_serialization_failure_does_not_terminate_pump(tmp_path):
@@ -478,7 +509,7 @@ def test_nonce_history_cap_fails_closed_preserves_current_and_idempotent_hello(t
     delivery._transport = network
     for index in range(4096):
         hello(delivery, hello_nonce=f'nonce-{index}')
-    assert delivery.session.hello_nonce == 'nonce-4095'
+    assert delivery.session.hello_nonce == delivery._test_final_hellos['nonce-4095']['hello_nonce']
     delivery.set_snapshot(StoredSnapshot(1, Snapshot.model_validate(pumpworks_payload)))
     identifier = delivery.session.snapshot_id
     ack(delivery, 'snapshot_applied', revision=1, snapshot_id=identifier)

@@ -107,9 +107,12 @@ def test_shared_vectors_are_reconstructable_and_shape_expectations_hold():
     for case in vectors['cases']:
         if case['shape_valid']:
             WireMessage.validate_python(case['payload'])
+            WireMessage.validate_json(case['payload_json'])
         else:
             with pytest.raises(ValidationError):
                 WireMessage.validate_python(case['payload'])
+            with pytest.raises(ValidationError):
+                WireMessage.validate_json(case['payload_json'])
 
 
 def test_committed_hello_schema_rejects_partial_source_binding():
@@ -121,3 +124,14 @@ def test_committed_hello_schema_rejects_partial_source_binding():
     validator.validate(hello)
     assert list(validator.iter_errors(dict(hello, source_id='12345678-1234-5678-1234-567812345679')))
     assert list(validator.iter_errors(dict(hello, source_id=None, scope_id='company:1/warehouse:1')))
+
+
+def test_shared_raw_snapshot_shape_vectors():
+    from pathlib import Path
+    vectors=json.loads((Path(__file__).resolve().parents[2]/'contracts/fixtures/snapshot-validation-v1.json').read_text())
+    for case in vectors:
+        if case['valid']:
+            Snapshot.model_validate_json(case['json'])
+        else:
+            with pytest.raises(ValidationError):
+                Snapshot.model_validate_json(case['json'])

@@ -10,19 +10,35 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 from decimal import Decimal
+from fractions import Fraction
 from pathlib import Path
 from typing import Annotated, Literal, Union
 from uuid import UUID
 
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import AfterValidator, BeforeValidator, BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-Id = Annotated[int, Field(strict=True, gt=0)]
-Sequence = Annotated[int, Field(strict=True, ge=0)]
-Finite = Annotated[float, Field(allow_inf_nan=False)]
-Quantity = Annotated[float, Field(ge=0, allow_inf_nan=False)]
-Positive = Annotated[float, Field(gt=0, allow_inf_nan=False)]
+SAFE_INTEGER = 9007199254740991
+Id = Annotated[int, Field(strict=True, gt=0, le=SAFE_INTEGER)]
+Sequence = Annotated[int, Field(strict=True, ge=0, le=SAFE_INTEGER)]
+Finite = Annotated[float, Field(strict=True, allow_inf_nan=False)]
+Quantity = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
+Positive = Annotated[float, Field(strict=True, gt=0, allow_inf_nan=False)]
 Text = Annotated[str, Field(min_length=1)]
-Scope = Annotated[str, Field(pattern=r"^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$")]
+
+def _bounded_decimal_pattern(limit: int) -> str:
+    digits = str(limit)
+    alternatives = [r"[1-9][0-9]{0," + str(len(digits) - 2) + "}"]
+    for index, digit in enumerate(digits):
+        low, high = (1 if index == 0 else 0), int(digit) - 1
+        if high >= low:
+            choice = str(low) if low == high else f"[{low}-{high}]"
+            alternatives.append(digits[:index] + choice + "[0-9]{" + str(len(digits) - index - 1) + "}")
+    alternatives.append(digits)
+    return "(?:" + "|".join(alternatives) + ")"
+
+
+_SCOPE_NUMBER = _bounded_decimal_pattern(SAFE_INTEGER)
+Scope = Annotated[str, Field(pattern="^company:" + _SCOPE_NUMBER + "/warehouse:" + _SCOPE_NUMBER + "$")]
 
 
 def _utc(value: datetime) -> datetime:
@@ -31,7 +47,13 @@ def _utc(value: datetime) -> datetime:
     return value
 
 
-UTCDateTime = Annotated[datetime, AfterValidator(_utc)]
+def _date_input(value):
+    if not isinstance(value, (str, datetime)):
+        raise ValueError("timestamp must be a UTC string or internal datetime")
+    return value
+
+
+UTCDateTime = Annotated[datetime, BeforeValidator(_date_input), AfterValidator(_utc)]
 
 
 class Contract(BaseModel):
@@ -47,6 +69,13 @@ class SnapshotMeta(Contract):
     source_read_at: UTCDateTime
     odoo_major: Literal[20]
     odoo_base_url: Annotated[str, Field(pattern=r"^https?://[^/\s]+(?:/[^\s]*)?$")]
+
+    @field_validator("schema_version", "odoo_major", mode="before")
+    @classmethod
+    def integer_constants(cls, value):
+        if type(value) is not int:
+            raise ValueError("integer JSON token required")
+        return value
 
     @model_validator(mode="after")
     def scope_matches_ids(self):
@@ -221,18 +250,18 @@ class Snapshot(Contract):
 
         def quantities(row, names):
             unit = _reference(units, row.unit_id, "unit")
-            rounding = Decimal(str(unit.rounding))
+            rounding = Fraction(Decimal(str(unit.rounding)))
             for name in names:
                 value = getattr(row, name)
                 if value is not None:
-                    ratio = Decimal(str(value)) / rounding
+                    ratio = Fraction(Decimal(str(value))) / rounding
                     # Source floats can have small representation error at a unit boundary.
-                    if abs(ratio - ratio.to_integral_value()) > Decimal("0.00000001"):
+                    if abs(ratio - round(ratio)) > Fraction(1, 100000000):
                         raise ValueError(f"{name} does not respect unit rounding")
 
         def consistent(row, actual, expected, label):
-            tolerance = Decimal(str(units[row.unit_id].rounding)) * Decimal("0.00000001")
-            if abs(Decimal(str(actual)) - expected) > tolerance:
+            tolerance = Fraction(Decimal(str(units[row.unit_id].rounding))) / 100000000
+            if abs(Fraction(Decimal(str(actual))) - expected) > tolerance:
                 raise ValueError(f"inconsistent {label}")
 
         def product_unit(row):
@@ -283,15 +312,15 @@ class Snapshot(Contract):
             product_unit(demand)
             quantities(demand, ("demand_qty", "remaining_demand_qty", "reserved_qty", "picked_qty",
                                "posted_consumed_qty", "unreserved_qty", "forecast_qty"))
-            expected_unreserved = max(Decimal(str(demand.remaining_demand_qty))
-                                      - Decimal(str(demand.reserved_qty)), Decimal(0))
+            expected_unreserved = max(Fraction(Decimal(str(demand.remaining_demand_qty)))
+                                      - Fraction(Decimal(str(demand.reserved_qty))), Fraction(0))
             consistent(demand, demand.unreserved_qty, expected_unreserved, "unreserved demand")
         stock_keys = set()
         for balance in self.stock:
             product_unit(balance)
             quantities(balance, ("on_hand_qty", "reserved_qty", "free_qty"))
-            consistent(balance, balance.free_qty, Decimal(str(balance.on_hand_qty))
-                       - Decimal(str(balance.reserved_qty)), "free stock")
+            consistent(balance, balance.free_qty, Fraction(Decimal(str(balance.on_hand_qty)))
+                       - Fraction(Decimal(str(balance.reserved_qty))), "free stock")
             key = (balance.product_id, balance.location_id)
             if key in stock_keys:
                 raise ValueError("duplicate stock balance")
@@ -319,6 +348,13 @@ class Envelope(Contract):
     source_id: UUID
     scope_id: Scope
 
+    @field_validator("version", mode="before")
+    @classmethod
+    def integer_version(cls, value):
+        if type(value) is not int:
+            raise ValueError("integer JSON token required")
+        return value
+
     @model_validator(mode="after")
     def bounded_utf8_envelope(self):
         data = json.dumps(self.model_dump(mode="json"), ensure_ascii=False, separators=(",", ":"))
@@ -334,6 +370,7 @@ class Hello(Envelope):
             "source_id": {"type": "string"}, "scope_id": {"type": "string"}}},
     ]})
     type: Literal["hello"]
+    challenge_id: UUID | None = None
     session_id: None = None
     source_id: UUID | None = None
     scope_id: Scope | None = None
@@ -343,6 +380,12 @@ class Hello(Envelope):
         if (self.source_id is None) != (self.scope_id is None):
             raise ValueError("hello source and scope must be jointly bound or unbound")
         return self
+
+
+class HelloChallenge(Envelope):
+    type: Literal["hello_challenge"]
+    session_id: None = None
+    challenge_id: UUID
 
 
 class HelloAck(Envelope):
@@ -397,7 +440,7 @@ class ResyncRequest(Envelope):
     type: Literal["resync_request"]
 
 
-WireEnvelope = Annotated[Union[Hello, HelloAck, SnapshotBegin, SnapshotChunk, ChunkAck,
+WireEnvelope = Annotated[Union[Hello, HelloChallenge, HelloAck, SnapshotBegin, SnapshotChunk, ChunkAck,
                               SnapshotApplied, Heartbeat, HeartbeatAck, ResyncRequest],
                          Field(discriminator="type")]
 WireMessage = TypeAdapter(WireEnvelope)

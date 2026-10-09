@@ -48,8 +48,8 @@ PYPROBE
   rm -f "$probe_file"
   exit
 fi
-if [[ "$mode" != bridge ]]; then
-  echo 'Usage: ./scripts/check bridge [pytest-arguments...] | odoo --tags TAGS' >&2
+if [[ "$mode" != bridge && "$mode" != lua ]]; then
+  echo 'Usage: ./scripts/check bridge [pytest-arguments...] | lua | odoo --tags TAGS' >&2
   exit 2
 fi
 shift
@@ -60,5 +60,7 @@ if ! docker image inspect "$image_tag" >/dev/null 2>&1; then
 fi
 # Resolve the local immutable image ID before running; never execute a moving tag.
 image_id=$(docker image inspect --format '{{.Id}}' "$image_tag")
-docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+runner=()
+if [[ "$mode" == lua ]]; then runner=(--entrypoint lua5.2); set -- /repo/factorio-mod/tests/lua/run.lua; fi
+docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m "${runner[@]}" \
   --user "$(id -u):$(id -g)" -v "$repo_root:/repo:ro" "$image_id" "$@"

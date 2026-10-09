@@ -108,12 +108,30 @@ Unknown raw states are valid data and receive an explicit unknown label.
 
 Protocol envelopes use `version=1`, `type`, `token`, `hello_nonce`, `session_id`,
 `source_id`, `scope_id`, and message-specific fields. Client hello uses no bound
-session; hello acknowledgment echoes the current nonce and provides a fresh
-bridge-generated session UUID. Snapshot messages carry `revision`, `snapshot_id`,
+session. Handshake is initial hello -> hello_challenge (fresh bridge UUID,
+echoed initial nonce, null session) -> final hello (challenge_id and hello_nonce
+equal that UUID) -> hello_ack (fresh session UUID, echoed final nonce).
+Restored saves can repeat initial nonces; external challenges provide freshness.
+Pending challenges: maximum eight, ten-second wall-clock expiry, duplicate initial
+idempotence. Only valid final confirmation triggers source refresh/authority;
+older issuance cannot replace a newer confirmed challenge. Confirmed final nonce
+history retains 4096 digests without eviction; current final retries remain
+idempotent at capacity, new admission requires explicit bridge restart.
+Integer identities/revisions/sequences/scope IDs are capped at 9007199254740991
+and integer JSON tokens are required. Native receiver shape inspection preserves
+null/required-field/array/object distinctions before helpers decode. Snapshot
+messages carry `revision`, `snapshot_id`,
 `chunk_count`, `byte_length`; chunks carry zero-based `index` and UTF-8 string
 `data`. Acks identify the exact session/snapshot/index. Heartbeats identify a
 sequence and include `source_read_at`, `source_age_seconds`, and source health.
-Persist the source binding separately from connection sessions.
+Persist the source binding separately from connection sessions. Reset a transient
+recovery fence on every handshake/load/resume: accept snapshots/ack heartbeats
+immediately; verified health requires four increasing distinct current-session
+heartbeat sequences and latest healthy source-read time matching the accepted
+snapshot (up to 20 seconds). Trusted localhost buffering permits at most three
+unacknowledged old heartbeats before the bridge 15-second timeout. Current-final
+idempotent hello never extends liveness. No adversarial replay authenticity or
+wall-clock freshness from game ticks is claimed.
 
 ### Task 1: Validated contracts and isolated test entry points
 
