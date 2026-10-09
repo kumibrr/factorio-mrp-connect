@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+# This file contains only committed, nonsecret image/version pins.
+source "$repo_root/deploy/versions.env"
+mode=${1:-}
+if [[ "$mode" != bridge ]]; then
+  echo 'Usage: ./scripts/check bridge [pytest-arguments...]' >&2
+  exit 2
+fi
+shift
+build_key=$(cat "$repo_root/deploy/Dockerfile.tests" "$repo_root/bridge/requirements-dev.lock" "$repo_root/deploy/versions.env" | sha256sum | cut -c1-20)
+image_tag="factorio-connect-tests:$build_key"
+if ! docker image inspect "$image_tag" >/dev/null 2>&1; then
+  docker build --build-arg "PYTHON_IMAGE=$PYTHON_IMAGE" -f "$repo_root/deploy/Dockerfile.tests" -t "$image_tag" "$repo_root" >&2
+fi
+# Resolve the local immutable image ID before running; never execute a moving tag.
+image_id=$(docker image inspect --format '{{.Id}}' "$image_tag")
+docker run --rm --network none --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --user "$(id -u):$(id -g)" -v "$repo_root:/repo:ro" "$image_id" "$@"

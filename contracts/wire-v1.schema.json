@@ -1,0 +1,654 @@
+{
+  "$defs": {
+    "ChunkAck": {
+      "additionalProperties": false,
+      "properties": {
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "index": {
+          "exclusiveMaximum": 512,
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "minLength": 1,
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "chunk_ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type",
+        "snapshot_id",
+        "index"
+      ],
+      "title": "ChunkAck",
+      "type": "object"
+    },
+    "Heartbeat": {
+      "additionalProperties": false,
+      "properties": {
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "last_error": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Error"
+        },
+        "last_success_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Success At"
+        },
+        "refreshing": {
+          "default": false,
+          "title": "Refreshing",
+          "type": "boolean"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "source_age_seconds": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Age Seconds"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_ok": {
+          "title": "Source Ok",
+          "type": "boolean"
+        },
+        "source_read_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Source Read At"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "heartbeat",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type",
+        "sequence",
+        "source_read_at",
+        "source_age_seconds",
+        "source_ok"
+      ],
+      "title": "Heartbeat",
+      "type": "object"
+    },
+    "HeartbeatAck": {
+      "additionalProperties": false,
+      "properties": {
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "heartbeat_ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type",
+        "sequence"
+      ],
+      "title": "HeartbeatAck",
+      "type": "object"
+    },
+    "Hello": {
+      "additionalProperties": false,
+      "properties": {
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "null"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "hello",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type"
+      ],
+      "title": "Hello",
+      "type": "object"
+    },
+    "HelloAck": {
+      "additionalProperties": false,
+      "properties": {
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "hello_ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type"
+      ],
+      "title": "HelloAck",
+      "type": "object"
+    },
+    "ResyncRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "resync_request",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type"
+      ],
+      "title": "ResyncRequest",
+      "type": "object"
+    },
+    "SnapshotApplied": {
+      "additionalProperties": false,
+      "properties": {
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "minLength": 1,
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "snapshot_applied",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type",
+        "revision",
+        "snapshot_id"
+      ],
+      "title": "SnapshotApplied",
+      "type": "object"
+    },
+    "SnapshotBegin": {
+      "additionalProperties": false,
+      "properties": {
+        "byte_length": {
+          "maximum": 262144,
+          "minimum": 1,
+          "title": "Byte Length",
+          "type": "integer"
+        },
+        "chunk_count": {
+          "maximum": 512,
+          "minimum": 1,
+          "title": "Chunk Count",
+          "type": "integer"
+        },
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "minLength": 1,
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "snapshot_begin",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type",
+        "revision",
+        "snapshot_id",
+        "chunk_count",
+        "byte_length"
+      ],
+      "title": "SnapshotBegin",
+      "type": "object"
+    },
+    "SnapshotChunk": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "title": "Data",
+          "type": "string"
+        },
+        "hello_nonce": {
+          "minLength": 1,
+          "title": "Hello Nonce",
+          "type": "string"
+        },
+        "index": {
+          "exclusiveMaximum": 512,
+          "minimum": 0,
+          "title": "Index",
+          "type": "integer"
+        },
+        "revision": {
+          "exclusiveMinimum": 0,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "session_id": {
+          "format": "uuid",
+          "title": "Session Id",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "minLength": 1,
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        },
+        "type": {
+          "const": "snapshot_chunk",
+          "title": "Type",
+          "type": "string"
+        },
+        "version": {
+          "const": 1,
+          "title": "Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "version",
+        "token",
+        "hello_nonce",
+        "session_id",
+        "source_id",
+        "scope_id",
+        "type",
+        "revision",
+        "snapshot_id",
+        "index",
+        "data"
+      ],
+      "title": "SnapshotChunk",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "discriminator": {
+    "mapping": {
+      "chunk_ack": "#/$defs/ChunkAck",
+      "heartbeat": "#/$defs/Heartbeat",
+      "heartbeat_ack": "#/$defs/HeartbeatAck",
+      "hello": "#/$defs/Hello",
+      "hello_ack": "#/$defs/HelloAck",
+      "resync_request": "#/$defs/ResyncRequest",
+      "snapshot_applied": "#/$defs/SnapshotApplied",
+      "snapshot_begin": "#/$defs/SnapshotBegin",
+      "snapshot_chunk": "#/$defs/SnapshotChunk"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Hello"
+    },
+    {
+      "$ref": "#/$defs/HelloAck"
+    },
+    {
+      "$ref": "#/$defs/SnapshotBegin"
+    },
+    {
+      "$ref": "#/$defs/SnapshotChunk"
+    },
+    {
+      "$ref": "#/$defs/ChunkAck"
+    },
+    {
+      "$ref": "#/$defs/SnapshotApplied"
+    },
+    {
+      "$ref": "#/$defs/Heartbeat"
+    },
+    {
+      "$ref": "#/$defs/HeartbeatAck"
+    },
+    {
+      "$ref": "#/$defs/ResyncRequest"
+    }
+  ]
+}

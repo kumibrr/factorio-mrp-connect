@@ -1,0 +1,868 @@
+{
+  "$defs": {
+    "Bom": {
+      "additionalProperties": false,
+      "properties": {
+        "components": {
+          "items": {
+            "$ref": "#/$defs/BomComponent"
+          },
+          "title": "Components",
+          "type": "array"
+        },
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "operations": {
+          "items": {
+            "$ref": "#/$defs/BomOperation"
+          },
+          "title": "Operations",
+          "type": "array"
+        },
+        "output_qty": {
+          "exclusiveMinimum": 0,
+          "title": "Output Qty",
+          "type": "number"
+        },
+        "product_id": {
+          "exclusiveMinimum": 0,
+          "title": "Product Id",
+          "type": "integer"
+        },
+        "unit_id": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "product_id",
+        "unit_id",
+        "output_qty",
+        "components",
+        "operations"
+      ],
+      "title": "Bom",
+      "type": "object"
+    },
+    "BomComponent": {
+      "additionalProperties": false,
+      "properties": {
+        "operation_id": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Operation Id"
+        },
+        "product_id": {
+          "exclusiveMinimum": 0,
+          "title": "Product Id",
+          "type": "integer"
+        },
+        "quantity": {
+          "minimum": 0,
+          "title": "Quantity",
+          "type": "number"
+        },
+        "unit_id": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "product_id",
+        "unit_id",
+        "quantity",
+        "operation_id"
+      ],
+      "title": "BomComponent",
+      "type": "object"
+    },
+    "BomOperation": {
+      "additionalProperties": false,
+      "properties": {
+        "center_id": {
+          "exclusiveMinimum": 0,
+          "title": "Center Id",
+          "type": "integer"
+        },
+        "dependency_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "title": "Dependency Ids",
+          "type": "array"
+        },
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "center_id",
+        "sequence",
+        "dependency_ids"
+      ],
+      "title": "BomOperation",
+      "type": "object"
+    },
+    "ManufacturingOrder": {
+      "additionalProperties": false,
+      "properties": {
+        "availability_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Availability State"
+        },
+        "backorder_sequence": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Backorder Sequence"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Deadline At"
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Finished At"
+        },
+        "group_id": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Group Id"
+        },
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "origin": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Origin"
+        },
+        "planned_start_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Planned Start At"
+        },
+        "posted_qty": {
+          "minimum": 0,
+          "title": "Posted Qty",
+          "type": "number"
+        },
+        "product_id": {
+          "exclusiveMinimum": 0,
+          "title": "Product Id",
+          "type": "integer"
+        },
+        "raw_state": {
+          "minLength": 1,
+          "title": "Raw State",
+          "type": "string"
+        },
+        "readiness_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Readiness State"
+        },
+        "reference": {
+          "minLength": 1,
+          "title": "Reference",
+          "type": "string"
+        },
+        "reported_qty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reported Qty"
+        },
+        "requested_qty": {
+          "minimum": 0,
+          "title": "Requested Qty",
+          "type": "number"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Started At"
+        },
+        "unit_id": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "reference",
+        "origin",
+        "product_id",
+        "unit_id",
+        "requested_qty",
+        "reported_qty",
+        "posted_qty",
+        "raw_state",
+        "planned_start_at",
+        "deadline_at",
+        "started_at",
+        "finished_at",
+        "readiness_state",
+        "availability_state",
+        "group_id",
+        "backorder_sequence"
+      ],
+      "title": "ManufacturingOrder",
+      "type": "object"
+    },
+    "MaterialDemand": {
+      "additionalProperties": false,
+      "properties": {
+        "availability_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Availability State"
+        },
+        "demand_qty": {
+          "minimum": 0,
+          "title": "Demand Qty",
+          "type": "number"
+        },
+        "forecast_qty": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Forecast Qty"
+        },
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "mo_id": {
+          "exclusiveMinimum": 0,
+          "title": "Mo Id",
+          "type": "integer"
+        },
+        "picked_qty": {
+          "minimum": 0,
+          "title": "Picked Qty",
+          "type": "number"
+        },
+        "posted_consumed_qty": {
+          "minimum": 0,
+          "title": "Posted Consumed Qty",
+          "type": "number"
+        },
+        "product_id": {
+          "exclusiveMinimum": 0,
+          "title": "Product Id",
+          "type": "integer"
+        },
+        "remaining_demand_qty": {
+          "minimum": 0,
+          "title": "Remaining Demand Qty",
+          "type": "number"
+        },
+        "reserved_qty": {
+          "minimum": 0,
+          "title": "Reserved Qty",
+          "type": "number"
+        },
+        "source_location_id": {
+          "exclusiveMinimum": 0,
+          "title": "Source Location Id",
+          "type": "integer"
+        },
+        "unit_id": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Id",
+          "type": "integer"
+        },
+        "unreserved_qty": {
+          "minimum": 0,
+          "title": "Unreserved Qty",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "mo_id",
+        "product_id",
+        "unit_id",
+        "demand_qty",
+        "remaining_demand_qty",
+        "reserved_qty",
+        "picked_qty",
+        "posted_consumed_qty",
+        "unreserved_qty",
+        "forecast_qty",
+        "availability_state",
+        "source_location_id"
+      ],
+      "title": "MaterialDemand",
+      "type": "object"
+    },
+    "Product": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Code"
+        },
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "unit_id": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "code",
+        "unit_id"
+      ],
+      "title": "Product",
+      "type": "object"
+    },
+    "SnapshotMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "company_id": {
+          "exclusiveMinimum": 0,
+          "title": "Company Id",
+          "type": "integer"
+        },
+        "odoo_base_url": {
+          "pattern": "^https?://[^/\\s]+(?:/[^\\s]*)?$",
+          "title": "Odoo Base Url",
+          "type": "string"
+        },
+        "odoo_major": {
+          "const": 20,
+          "title": "Odoo Major",
+          "type": "integer"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "scope_id": {
+          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+          "title": "Scope Id",
+          "type": "string"
+        },
+        "source_id": {
+          "format": "uuid",
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_read_at": {
+          "format": "date-time",
+          "title": "Source Read At",
+          "type": "string"
+        },
+        "warehouse_id": {
+          "exclusiveMinimum": 0,
+          "title": "Warehouse Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "source_id",
+        "scope_id",
+        "company_id",
+        "warehouse_id",
+        "source_read_at",
+        "odoo_major",
+        "odoo_base_url"
+      ],
+      "title": "SnapshotMeta",
+      "type": "object"
+    },
+    "StockBalance": {
+      "additionalProperties": false,
+      "properties": {
+        "free_qty": {
+          "title": "Free Qty",
+          "type": "number"
+        },
+        "location_id": {
+          "exclusiveMinimum": 0,
+          "title": "Location Id",
+          "type": "integer"
+        },
+        "on_hand_qty": {
+          "title": "On Hand Qty",
+          "type": "number"
+        },
+        "product_id": {
+          "exclusiveMinimum": 0,
+          "title": "Product Id",
+          "type": "integer"
+        },
+        "reserved_qty": {
+          "minimum": 0,
+          "title": "Reserved Qty",
+          "type": "number"
+        },
+        "unit_id": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "product_id",
+        "location_id",
+        "unit_id",
+        "on_hand_qty",
+        "reserved_qty",
+        "free_qty"
+      ],
+      "title": "StockBalance",
+      "type": "object"
+    },
+    "Unit": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "rounding": {
+          "exclusiveMinimum": 0,
+          "title": "Rounding",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "rounding"
+      ],
+      "title": "Unit",
+      "type": "object"
+    },
+    "WorkCenter": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "title": "Active",
+          "type": "boolean"
+        },
+        "calendar_id": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Calendar Id"
+        },
+        "capacity": {
+          "exclusiveMinimum": 0,
+          "title": "Capacity",
+          "type": "number"
+        },
+        "code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Code"
+        },
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "raw_working_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Raw Working State"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "code",
+        "active",
+        "capacity",
+        "calendar_id",
+        "raw_working_state"
+      ],
+      "title": "WorkCenter",
+      "type": "object"
+    },
+    "WorkOrder": {
+      "additionalProperties": false,
+      "properties": {
+        "carried_qty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Carried Qty"
+        },
+        "center_id": {
+          "exclusiveMinimum": 0,
+          "title": "Center Id",
+          "type": "integer"
+        },
+        "dependency_ids": {
+          "items": {
+            "exclusiveMinimum": 0,
+            "type": "integer"
+          },
+          "title": "Dependency Ids",
+          "type": "array"
+        },
+        "elapsed_minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Elapsed Minutes"
+        },
+        "expected_minutes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expected Minutes"
+        },
+        "id": {
+          "exclusiveMinimum": 0,
+          "title": "Id",
+          "type": "integer"
+        },
+        "mo_id": {
+          "exclusiveMinimum": 0,
+          "title": "Mo Id",
+          "type": "integer"
+        },
+        "operation_id": {
+          "exclusiveMinimum": 0,
+          "title": "Operation Id",
+          "type": "integer"
+        },
+        "output_qty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Qty"
+        },
+        "raw_state": {
+          "minLength": 1,
+          "title": "Raw State",
+          "type": "string"
+        },
+        "ready_qty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ready Qty"
+        },
+        "remaining_qty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Remaining Qty"
+        },
+        "required_qty": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Required Qty"
+        },
+        "sequence": {
+          "minimum": 0,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "unit_id": {
+          "exclusiveMinimum": 0,
+          "title": "Unit Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "mo_id",
+        "center_id",
+        "operation_id",
+        "unit_id",
+        "sequence",
+        "dependency_ids",
+        "raw_state",
+        "output_qty",
+        "carried_qty",
+        "required_qty",
+        "remaining_qty",
+        "ready_qty",
+        "expected_minutes",
+        "elapsed_minutes"
+      ],
+      "title": "WorkOrder",
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "boms": {
+      "items": {
+        "$ref": "#/$defs/Bom"
+      },
+      "title": "Boms",
+      "type": "array"
+    },
+    "manufacturing_orders": {
+      "items": {
+        "$ref": "#/$defs/ManufacturingOrder"
+      },
+      "title": "Manufacturing Orders",
+      "type": "array"
+    },
+    "material_demands": {
+      "items": {
+        "$ref": "#/$defs/MaterialDemand"
+      },
+      "title": "Material Demands",
+      "type": "array"
+    },
+    "meta": {
+      "$ref": "#/$defs/SnapshotMeta"
+    },
+    "products": {
+      "items": {
+        "$ref": "#/$defs/Product"
+      },
+      "title": "Products",
+      "type": "array"
+    },
+    "stock": {
+      "items": {
+        "$ref": "#/$defs/StockBalance"
+      },
+      "title": "Stock",
+      "type": "array"
+    },
+    "units": {
+      "items": {
+        "$ref": "#/$defs/Unit"
+      },
+      "title": "Units",
+      "type": "array"
+    },
+    "work_centers": {
+      "items": {
+        "$ref": "#/$defs/WorkCenter"
+      },
+      "title": "Work Centers",
+      "type": "array"
+    },
+    "work_orders": {
+      "items": {
+        "$ref": "#/$defs/WorkOrder"
+      },
+      "title": "Work Orders",
+      "type": "array"
+    }
+  },
+  "required": [
+    "meta",
+    "units",
+    "products",
+    "work_centers",
+    "manufacturing_orders",
+    "work_orders",
+    "boms",
+    "material_demands",
+    "stock"
+  ],
+  "title": "Snapshot",
+  "type": "object"
+}
