@@ -269,11 +269,11 @@ class Snapshot(Contract):
         for wo in self.work_orders:
             mo = _reference(mos, wo.mo_id, "MO")
             _reference(centers, wo.center_id, "center")
-            operation = _reference(operations, wo.operation_id, "operation")
+            _reference(operations, wo.operation_id, "operation")
             if wo.operation_id not in product_operations.get(mo.product_id, set()):
                 raise ValueError("WO operation does not produce MO product")
-            if operation.center_id != wo.center_id or wo.unit_id != mo.unit_id:
-                raise ValueError("WO center or unit does not match source operation/MO")
+            if wo.unit_id != mo.unit_id:
+                raise ValueError("WO unit does not match MO")
             for identifier in wo.dependency_ids:
                 if _reference(wos, identifier, "WO dependency").mo_id != wo.mo_id:
                     raise ValueError("WO predecessor belongs to another MO")

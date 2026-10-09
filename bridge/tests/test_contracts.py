@@ -1,5 +1,6 @@
 """Boundary tests: catch lost source values, malformed graphs and unsafe serialization."""
 import copy
+from datetime import UTC, datetime, timedelta
 import json
 from pathlib import Path
 
@@ -21,6 +22,14 @@ def test_pumpworks_contract_counts_and_motor_shortage(pumpworks_payload):
     assert sum(mo.posted_qty for mo in snapshot.manufacturing_orders if mo.product_id == 10) == 14
     assert [(mo.requested_qty, mo.posted_qty) for mo in snapshot.manufacturing_orders if mo.group_id == 3] == [(4, 4), (6, 0)]
     assert next(row for row in snapshot.stock if row.product_id == 10).on_hand_qty == 14
+    # Hand-derived hours relative to the approved seed's fixed fixture T0.
+    t0 = datetime(2026, 10, 9, 12, tzinfo=UTC)
+    expected_offsets = {1: (0, 1), 2: (0, 1), 3: (0, 4), 4: (0, 4),
+                        5: (1, 2), 6: (0, 1), 7: (-2, -1), 8: (1, 3)}
+    for mo in snapshot.manufacturing_orders:
+        start_hours, deadline_hours = expected_offsets[mo.id]
+        assert mo.planned_start_at == t0 + timedelta(hours=start_hours)
+        assert mo.deadline_at == t0 + timedelta(hours=deadline_hours)
 
 
 def test_unknown_state_and_null_are_preserved(pumpworks_payload):
@@ -161,3 +170,17 @@ def test_rejects_misleading_balance_or_unreserved_demand(pumpworks_payload, muta
     mutation(pumpworks_payload)
     with pytest.raises(ValidationError):
         validate_snapshot(pumpworks_payload)
+
+
+@pytest.mark.parametrize("change_current_operation", [False, True])
+def test_preserves_independently_assigned_work_order_center(pumpworks_payload, change_current_operation):
+    if change_current_operation:
+        # Editing today's BOM must not overwrite historical WO station facts.
+        pumpworks_payload["boms"][1]["operations"][0]["center_id"] = 3
+    else:
+        # Odoo supports moving an active WO to another existing work center.
+        pumpworks_payload["work_orders"][10]["center_id"] = 3
+    snapshot = validate_snapshot(pumpworks_payload)
+    result = json.loads(snapshot_bytes(snapshot))
+    assert result["work_orders"][10]["center_id"] == (2 if change_current_operation else 3)
+    assert result["boms"][1]["operations"][0]["center_id"] == (3 if change_current_operation else 2)
