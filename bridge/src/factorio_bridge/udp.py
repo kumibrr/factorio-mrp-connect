@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
+from datetime import datetime, timezone
+from hashlib import sha256
 import json
 import secrets
 import logging
@@ -13,6 +15,12 @@ from pydantic import ValidationError
 from .contracts import WireMessage
 from .coordinator import BridgeHealth
 from .protocol import Session, encode_frames, encode_message
+
+
+# Retain exact replay rejection without unbounded connection state. At the cap,
+# current-session retries still work; explicit process restart clears history.
+_NONCE_HISTORY_LIMIT = 4096
+_ERROR_LABEL_CHARACTERS = 64
 
 
 class _Receiver(asyncio.DatagramProtocol):
@@ -37,7 +45,8 @@ class UdpDelivery:
         self._queued_snapshot = None
         self._publish_wake = asyncio.Event()
         self._retry_at = 0
-        self._last_nonce = None
+        self._used_nonces = set()
+        self._nonce_cap_logged = False
         self._reconnect_tasks = set()
         self._data_sent = deque()
 
@@ -175,16 +184,23 @@ class UdpDelivery:
                 # Lost hello_ack must not reset an active assembly or session.
                 self._send(encode_message(self.session.envelope('hello_ack')))
                 return
-            if message.hello_nonce == self._last_nonce:
+            nonce_digest = sha256(message.hello_nonce.encode('utf-8')).digest()
+            if nonce_digest in self._used_nonces:
+                return
+            if len(self._used_nonces) >= _NONCE_HISTORY_LIMIT:
+                if not self._nonce_cap_logged:
+                    logging.getLogger(__name__).warning('Handshake nonce history is full; restart bridge to accept a new nonce')
+                    self._nonce_cap_logged = True
                 return
             session = self._new_session(message.hello_nonce)
             try:
+                self._preflight_control(session)
                 frames = None if self.latest is None else encode_frames(self.latest, session)
                 response = encode_message(session.envelope('hello_ack'))
             except ValueError:
                 return
             self.session = session
-            self._last_nonce = message.hello_nonce
+            self._used_nonces.add(nonce_digest)
             self._send(response)
             if frames is not None:
                 self._prepare(frames)
@@ -214,8 +230,31 @@ class UdpDelivery:
             self._refresh_source()
         self.tick()
 
+    def _heartbeat_payload(self, session, sequence, health, source_at, age):
+        return dict(session.envelope('heartbeat'), sequence=sequence,
+                    source_read_at=None if source_at is None else source_at.isoformat().replace('+00:00', 'Z'),
+                    source_age_seconds=age, source_ok=health.source_ok,
+                    last_success_at=None if health.last_success_at is None else health.last_success_at.isoformat().replace('+00:00', 'Z'),
+                    last_error=None if health.last_error is None else health.last_error[:_ERROR_LABEL_CHARACTERS],
+                    refreshing=health.refreshing)
+
+    def _preflight_control(self, session):
+        # Reserve future timestamp/numeric fields and the worst JSON escaping of
+        # a bounded error label, even when the initial cache/source is absent.
+        maximum_date = datetime.max.replace(tzinfo=timezone.utc)
+        health = BridgeHealth(False, None, maximum_date, '\0' * _ERROR_LABEL_CHARACTERS, False)
+        encode_message(self._heartbeat_payload(session, 18446744073709551615,
+                                               health, maximum_date, 1.7976931348623157e308))
+
     def tick(self):
-        """Run due work; real runtime and controlled clocks use the same pump."""
+        """A bad session envelope must not terminate the periodic service."""
+        try:
+            self._tick()
+        except ValueError:
+            logging.getLogger(__name__).warning('Session envelope could not be encoded; waiting for a fresh handshake')
+            self.session = None
+
+    def _tick(self):
         session = self.session
         if session is None:
             return
@@ -228,11 +267,7 @@ class UdpDelivery:
             source_at = None if self.latest is None else self.latest.snapshot.meta.source_read_at
             age = None if source_at is None else max(0, (self.clock.utcnow() - source_at).total_seconds())
             session.heartbeat_sequence += 1
-            row = dict(session.envelope('heartbeat'), sequence=session.heartbeat_sequence,
-                       source_read_at=None if source_at is None else source_at.isoformat().replace('+00:00', 'Z'),
-                       source_age_seconds=age, source_ok=health.source_ok,
-                       last_success_at=None if health.last_success_at is None else health.last_success_at.isoformat().replace('+00:00', 'Z'),
-                       last_error=health.last_error, refreshing=health.refreshing)
+            row = self._heartbeat_payload(session, session.heartbeat_sequence, health, source_at, age)
             self._send(encode_message(row))
             session.heartbeat_sent_at = now
         if not session.frames:

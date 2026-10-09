@@ -19,7 +19,9 @@
     },
     "timeout": "Heartbeat timeout accepts a fresh nonce immediately; old nonce/session cannot revive. Exhausted snapshot delivery attempts impose 10 seconds of Hello backoff.",
     "application_ack": "Only exact current session/revision/snapshot_id and completely sent transfer can advance applied_revision; chunk ack loss alone does not invalidate application acknowledgment.",
-    "heartbeat_ack": "Only a current-session emitted current positive sequence, newer than the last acknowledged sequence, extends transport liveness."
+    "heartbeat_ack": "Only a current-session emitted current positive sequence, newer than the last acknowledged sequence, extends transport liveness.",
+    "nonce_replay": "4096 SHA256 digests retained for bridge service lifetime, without eviction. Used nonces cannot replace a newer session. Active-session same-nonce Hello remains idempotent. At capacity new nonces are ignored; explicit bridge restart clears connection-only history, while SQLite source binding/cache remain unchanged.",
+    "control_budget": "Hello acceptance reserves required heartbeat overhead including populated UTC timestamps, numeric fields and at most 64 characters of error label. A shape-valid Hello can be ignored when this mandatory control budget cannot fit 1024 UTF-8 bytes. An individual session serialization failure invalidates that session without terminating delivery service."
   },
   "session": {
     "version": 1,
@@ -816,6 +818,26 @@
       "shape_valid": true,
       "accepted": false,
       "outcome": "ignore"
+    },
+    {
+      "name": "reject_hello_nonce_without_control_budget",
+      "direction": "bridge",
+      "context": {
+        "token": "vector-pairing-only",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "type": "hello",
+        "token": "vector-pairing-only",
+        "hello_nonce": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore_without_replacing_session"
     }
   ],
   "replays": [
@@ -1199,6 +1221,43 @@
         "applied_revision": 7,
         "application_count": 1,
         "canonical_snapshot_utf8": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work_orders\":[]}"
+      }
+    }
+  ],
+  "bridge_replays": [
+    {
+      "name": "older_hello_cannot_replace_newer_session",
+      "context": {
+        "token": "vector-pairing-only",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "envelopes": [
+        {
+          "version": 1,
+          "type": "hello",
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-A"
+        },
+        {
+          "version": 1,
+          "type": "hello",
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-B"
+        },
+        {
+          "version": 1,
+          "type": "hello",
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-A"
+        }
+      ],
+      "expected": {
+        "current_hello_nonce": "nonce-B",
+        "new_session_count": 2,
+        "delayed_hello_preserves_current_transfer_and_application": true
       }
     }
   ]

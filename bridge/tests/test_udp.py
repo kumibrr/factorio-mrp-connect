@@ -412,3 +412,109 @@ def test_lost_application_ack_retries_same_begin_then_stops(tmp_path, pumpworks_
     delivery.tick()
     assert len([row for row in network.rows if row['type'] == 'snapshot_begin']) == 2
     assert delivery.applied_revision == 1
+
+
+def test_long_nonce_without_snapshot_is_rejected_and_pump_keeps_running(tmp_path):
+    async def scenario():
+        clock = FakeClock()
+        configured = settings(tmp_path).model_copy(update={'udp_port': 0})
+        delivery = UdpDelivery(configured, clock)
+        await delivery.start()
+        try:
+            hello(delivery, hello_nonce='x' * 700)
+            assert delivery.session is None
+            await clock.advance(5)
+            assert not delivery._task.done()
+            hello(delivery, hello_nonce='healthy-reconnect')
+            session_id = delivery.session.session_id
+            await clock.advance(5)
+            assert not delivery._task.done()
+            assert delivery.session.session_id == session_id
+            assert delivery.session.heartbeat_sequence == 1
+        finally:
+            await delivery.stop()
+    asyncio.run(scenario())
+
+
+def test_delayed_old_hello_preserves_new_session_transfer_and_application(tmp_path, pumpworks_payload):
+    clock, delivery, network = rig(tmp_path, pumpworks_payload)
+    hello(delivery, hello_nonce='nonce-B')
+    identifier = delivery.session.snapshot_id
+    ack(delivery, 'snapshot_applied', revision=1, snapshot_id=identifier)
+    session_id = delivery.session.session_id
+    hello(delivery, hello_nonce='fresh')
+    assert delivery.session.session_id == session_id
+    assert delivery.session.snapshot_id == identifier
+    assert delivery.applied_revision == 1
+    hello(delivery, hello_nonce='nonce-C')
+    assert delivery.session.session_id != session_id
+    assert delivery.session.hello_nonce == 'nonce-C'
+
+
+def test_heartbeat_serialization_failure_does_not_terminate_pump(tmp_path):
+    async def scenario():
+        clock = FakeClock()
+        configured = settings(tmp_path).model_copy(update={'udp_port': 0})
+        delivery = UdpDelivery(configured, clock)
+        await delivery.start()
+        try:
+            hello(delivery, hello_nonce='first')
+            delivery.set_health(BridgeHealth(False, None, clock.utcnow(), 'error' * 1000, False))
+            await clock.advance(5)
+            assert not delivery._task.done()
+            hello(delivery, hello_nonce='recovered')
+            delivery.set_health(BridgeHealth(False, None, None, None, False))
+            await clock.advance(5)
+            assert not delivery._task.done()
+            assert delivery.session.heartbeat_sequence == 1
+        finally:
+            await delivery.stop()
+    asyncio.run(scenario())
+
+
+def test_nonce_history_cap_fails_closed_preserves_current_and_idempotent_hello(tmp_path, pumpworks_payload, caplog):
+    delivery = UdpDelivery(settings(tmp_path), FakeClock())
+    network = Network()
+    delivery._transport = network
+    for index in range(4096):
+        hello(delivery, hello_nonce=f'nonce-{index}')
+    assert delivery.session.hello_nonce == 'nonce-4095'
+    delivery.set_snapshot(StoredSnapshot(1, Snapshot.model_validate(pumpworks_payload)))
+    identifier = delivery.session.snapshot_id
+    ack(delivery, 'snapshot_applied', revision=1, snapshot_id=identifier)
+    session_id = delivery.session.session_id
+    hello(delivery, hello_nonce='nonce-4096')
+    assert delivery.session.session_id == session_id
+    assert delivery.session.snapshot_id == identifier
+    assert delivery.applied_revision == 1
+    hello(delivery, hello_nonce='nonce-4095')
+    assert network.rows[-1]['type'] == 'hello_ack'
+    assert delivery.session.session_id == session_id
+    hello(delivery, hello_nonce='nonce-0')
+    assert delivery.session.session_id == session_id
+    assert delivery.applied_revision == 1
+    assert 'restart bridge' in caplog.text.lower()
+    assert 'pairing-secret' not in caplog.text
+
+
+def test_invalid_heartbeat_timestamp_drops_session_but_next_session_runs(tmp_path, caplog):
+    async def scenario():
+        clock = FakeClock()
+        configured = settings(tmp_path).model_copy(update={'udp_port': 0})
+        delivery = UdpDelivery(configured, clock)
+        await delivery.start()
+        try:
+            hello(delivery, hello_nonce='invalid-telemetry-session')
+            delivery.set_health(BridgeHealth(False, None, clock.utcnow().replace(tzinfo=None), None, False))
+            await clock.advance(5)
+            assert delivery.session is None
+            assert not delivery._task.done()
+            delivery.set_health(BridgeHealth(False, None, None, None, False))
+            hello(delivery, hello_nonce='valid-telemetry-session')
+            await clock.advance(5)
+            assert not delivery._task.done()
+            assert delivery.session.heartbeat_sequence == 1
+            assert 'pairing-secret' not in caplog.text
+        finally:
+            await delivery.stop()
+    asyncio.run(scenario())
