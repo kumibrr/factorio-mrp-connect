@@ -13,7 +13,7 @@ from factorio_bridge.store import SnapshotStore
 
 async def probe():
     private = json.loads(Path('/odoo/factorio-json2-probe.json').read_text())
-    configured = Settings(odoo_base_url='http://odoo:8069', database='factorio_tests', api_key=private['key'], webhook_token='isolated-test-token', source_id=private['source_id'], scope_id=private['scope_id'])
+    configured = Settings(odoo_base_url='http://odoo:8069', database='factorio_tests', api_key=private['key'], webhook_token='isolated-test-token', pairing_token='isolated-test-pairing', source_id=private['source_id'], scope_id=private['scope_id'])
     async with httpx.AsyncClient(trust_env=False) as http:
         for attempt in range(60):
             try:

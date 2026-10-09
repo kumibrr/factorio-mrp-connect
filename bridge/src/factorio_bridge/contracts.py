@@ -328,8 +328,21 @@ class Envelope(Contract):
 
 
 class Hello(Envelope):
+    model_config = ConfigDict(json_schema_extra={"anyOf": [
+        {"properties": {"source_id": {"type": "null"}, "scope_id": {"type": "null"}}},
+        {"required": ["source_id", "scope_id"], "properties": {
+            "source_id": {"type": "string"}, "scope_id": {"type": "string"}}},
+    ]})
     type: Literal["hello"]
-    session_id: None
+    session_id: None = None
+    source_id: UUID | None = None
+    scope_id: Scope | None = None
+
+    @model_validator(mode="after")
+    def jointly_bound_source(self):
+        if (self.source_id is None) != (self.scope_id is None):
+            raise ValueError("hello source and scope must be jointly bound or unbound")
+        return self
 
 
 class HelloAck(Envelope):

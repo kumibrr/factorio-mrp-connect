@@ -1,4 +1,4 @@
-"""Bridge process. Task 5 supplies the UDP publisher at the StoredSnapshot seam."""
+"""Source coordinator and acknowledged localhost delivery process."""
 from contextlib import asynccontextmanager
 import logging
 import sys
@@ -14,6 +14,7 @@ from .logging import install_redaction
 from .odoo import OdooClient
 from .settings import Settings
 from .store import SnapshotStore
+from .udp import UdpDelivery
 
 
 def main():
@@ -23,14 +24,14 @@ def main():
         print('Invalid bridge configuration; check FACTORIO_ environment settings', file=sys.stderr)
         raise SystemExit(2) from None
     logging.basicConfig(level=logging.INFO)
-    install_redaction([settings.api_key.get_secret_value(), settings.webhook_token.get_secret_value()])
+    install_redaction([settings.api_key.get_secret_value(), settings.webhook_token.get_secret_value(), settings.pairing_token.get_secret_value()])
     http = httpx.AsyncClient(trust_env=False)
     client = OdooClient(settings, http)
     store = SnapshotStore(settings.cache_path, source_id=settings.source_id, scope_id=settings.scope_id)
-    async def publish(stored):
-        logging.getLogger(__name__).info('Accepted factory snapshot revision %d', stored.revision)
-    coordinator = RefreshCoordinator(client.get_snapshot, store, publish, SystemClock())
-    app = create_app(settings, coordinator)
+    clock = SystemClock()
+    delivery = UdpDelivery(settings, clock)
+    coordinator = RefreshCoordinator(client.get_snapshot, store, delivery.enqueue, clock)
+    app = create_app(settings, coordinator, delivery)
     original = app.router.lifespan_context
     @asynccontextmanager
     async def lifespan(app):

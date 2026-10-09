@@ -2,6 +2,7 @@
 import os
 from pathlib import Path
 from uuid import UUID
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
@@ -12,13 +13,16 @@ class Settings(BaseModel):
     database: str = 'factorio_demo'
     api_key: SecretStr
     webhook_token: SecretStr
+    pairing_token: SecretStr
     source_id: UUID
     scope_id: str = Field(pattern=r'^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$')
     cache_path: Path = Path('/var/lib/factorio-bridge/cache.sqlite')
-    bind_host: str = '172.28.0.1'
+    bind_host: Literal['172.28.0.1'] = '172.28.0.1'
+    udp_port: int = Field(default=34200, ge=1, le=65535)
+    game_udp_port: int = Field(default=34199, ge=1, le=65535)
     bind_port: int = Field(default=8765, ge=1, le=65535)
 
-    @field_validator('api_key', 'webhook_token')
+    @field_validator('api_key', 'webhook_token', 'pairing_token')
     @classmethod
     def valid_secret(cls, value):
         secret = value.get_secret_value()

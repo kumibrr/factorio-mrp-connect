@@ -18,19 +18,26 @@ class Notification(BaseModel):
     action: str = Field(alias='_action', min_length=1, max_length=512)
 
 
-def create_app(settings, coordinator) -> FastAPI:
+def create_app(settings, coordinator, delivery=None) -> FastAPI:
     def redact():
-        install_redaction([settings.api_key.get_secret_value(), settings.webhook_token.get_secret_value()])
+        install_redaction([settings.api_key.get_secret_value(), settings.webhook_token.get_secret_value(), settings.pairing_token.get_secret_value()])
     redact()
+    if delivery is not None:
+        delivery.on_reconnect = coordinator.request_initial
+        delivery.health_provider = lambda: coordinator.health
 
     @asynccontextmanager
     async def lifespan(app):
         redact()
-        await coordinator.start()
         try:
+            if delivery is not None:
+                await delivery.start()
+            await coordinator.start()
             yield
         finally:
             await coordinator.stop()
+            if delivery is not None:
+                await delivery.stop()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -55,6 +62,8 @@ def create_app(settings, coordinator) -> FastAPI:
 
     @app.get('/healthz')
     async def health():
-        return {**asdict(coordinator.health), 'dirty': coordinator.dirty}
+        return {**asdict(coordinator.health), 'dirty': coordinator.dirty,
+                'latest_revision': None if coordinator.latest is None else coordinator.latest.revision,
+                'applied_revision': None if delivery is None else delivery.applied_revision}
 
     return app

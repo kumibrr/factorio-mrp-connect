@@ -241,6 +241,32 @@
     },
     "Hello": {
       "additionalProperties": false,
+      "anyOf": [
+        {
+          "properties": {
+            "scope_id": {
+              "type": "null"
+            },
+            "source_id": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "scope_id": {
+              "type": "string"
+            },
+            "source_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "source_id",
+            "scope_id"
+          ]
+        }
+      ],
       "properties": {
         "hello_nonce": {
           "minLength": 1,
@@ -248,18 +274,35 @@
           "type": "string"
         },
         "scope_id": {
-          "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
-          "title": "Scope Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "pattern": "^company:[1-9][0-9]*/warehouse:[1-9][0-9]*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scope Id"
         },
         "session_id": {
+          "default": null,
           "title": "Session Id",
           "type": "null"
         },
         "source_id": {
-          "format": "uuid",
-          "title": "Source Id",
-          "type": "string"
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Id"
         },
         "token": {
           "minLength": 1,
@@ -281,9 +324,6 @@
         "version",
         "token",
         "hello_nonce",
-        "session_id",
-        "source_id",
-        "scope_id",
         "type"
       ],
       "title": "Hello",

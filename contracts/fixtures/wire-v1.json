@@ -1,0 +1,1205 @@
+{
+  "version": 1,
+  "semantics": {
+    "snapshot_id": "Opaque bridge-generated UUID for one transfer attempt; no digest validation.",
+    "accepted": "Passes shape AND context-specific token/nonce/session/source/scope/transfer authority. Shape-valid envelopes can still be ignored.",
+    "limits": {
+      "envelope_utf8_bytes": 1024,
+      "snapshot_utf8_bytes": 262144,
+      "chunks": 512,
+      "unacknowledged_chunks": 8,
+      "data_frames_per_second": 100,
+      "retry_seconds": 1,
+      "max_attempts": 8,
+      "exhausted_delivery_hello_backoff_seconds": 10,
+      "receiver_assembly_expiry_seconds": 10,
+      "heartbeat_interval_seconds": 5,
+      "session_timeout_seconds": 15,
+      "source_stale_seconds": 90
+    },
+    "timeout": "Heartbeat timeout accepts a fresh nonce immediately; old nonce/session cannot revive. Exhausted snapshot delivery attempts impose 10 seconds of Hello backoff.",
+    "application_ack": "Only exact current session/revision/snapshot_id and completely sent transfer can advance applied_revision; chunk ack loss alone does not invalidate application acknowledgment.",
+    "heartbeat_ack": "Only a current-session emitted current positive sequence, newer than the last acknowledged sequence, extends transport liveness."
+  },
+  "session": {
+    "version": 1,
+    "token": "vector-pairing-only",
+    "hello_nonce": "nonce-vector-1",
+    "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "source_id": "12345678-1234-5678-1234-567812345679",
+    "scope_id": "company:1/warehouse:1",
+    "type": "hello_ack"
+  },
+  "canonical_snapshot_utf8": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work_orders\":[]}",
+  "expected_revision": 7,
+  "frames": [
+    {
+      "version": 1,
+      "token": "vector-pairing-only",
+      "hello_nonce": "nonce-vector-1",
+      "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "source_id": "12345678-1234-5678-1234-567812345679",
+      "scope_id": "company:1/warehouse:1",
+      "type": "snapshot_begin",
+      "revision": 7,
+      "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "chunk_count": 3,
+      "byte_length": 892
+    },
+    {
+      "version": 1,
+      "token": "vector-pairing-only",
+      "hello_nonce": "nonce-vector-1",
+      "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "source_id": "12345678-1234-5678-1234-567812345679",
+      "scope_id": "company:1/warehouse:1",
+      "type": "snapshot_chunk",
+      "revision": 7,
+      "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "index": 0,
+      "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+    },
+    {
+      "version": 1,
+      "token": "vector-pairing-only",
+      "hello_nonce": "nonce-vector-1",
+      "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "source_id": "12345678-1234-5678-1234-567812345679",
+      "scope_id": "company:1/warehouse:1",
+      "type": "snapshot_chunk",
+      "revision": 7,
+      "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "index": 1,
+      "data": "a 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work"
+    },
+    {
+      "version": 1,
+      "token": "vector-pairing-only",
+      "hello_nonce": "nonce-vector-1",
+      "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "source_id": "12345678-1234-5678-1234-567812345679",
+      "scope_id": "company:1/warehouse:1",
+      "type": "snapshot_chunk",
+      "revision": 7,
+      "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      "index": 2,
+      "data": "_orders\":[]}"
+    }
+  ],
+  "cases": [
+    {
+      "name": "initial_hello_omits_binding",
+      "direction": "bridge",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "type": "hello",
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1"
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "bind_fresh_session_and_request_initial_source_read"
+    },
+    {
+      "name": "initial_hello_null_binding",
+      "direction": "bridge",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "type": "hello",
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": null,
+        "scope_id": null
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "bind_fresh_session_and_request_initial_source_read"
+    },
+    {
+      "name": "hello_ack_echoes_current_nonce",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "hello_ack"
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "bind_session_preserve_source"
+    },
+    {
+      "name": "begin_valid",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_begin",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "chunk_count": 3,
+        "byte_length": 892
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "start_assembly"
+    },
+    {
+      "name": "chunk_valid_0",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "store_and_ack_chunk"
+    },
+    {
+      "name": "chunk_valid_1",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 1,
+        "data": "a 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work"
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "store_and_ack_chunk"
+    },
+    {
+      "name": "chunk_valid_2",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 2,
+        "data": "_orders\":[]}"
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "store_and_ack_chunk"
+    },
+    {
+      "name": "heartbeat_stale_source",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "heartbeat",
+        "sequence": 1,
+        "source_read_at": "2026-10-09T12:00:00Z",
+        "source_age_seconds": 95,
+        "source_ok": false,
+        "last_success_at": null,
+        "last_error": "OSError",
+        "refreshing": false
+      },
+      "shape_valid": true,
+      "accepted": true,
+      "outcome": "ack_transport_keep_source_stale"
+    },
+    {
+      "name": "reject_wrong_token",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "wrong",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_wrong_hello_nonce",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "old",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_wrong_session_id",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_wrong_source_id",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_wrong_scope_id",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null,
+        "active_transfer": {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        "received_indices": []
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:2/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_unknown_type",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "unknown",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_unbound_chunk",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_negative_index",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": -1,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_index_512",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 512,
+        "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_too_many_chunks",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_begin",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "chunk_count": 513,
+        "byte_length": 892
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_too_large_snapshot",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_begin",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "chunk_count": 3,
+        "byte_length": 262145
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_oversized_envelope",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "snapshot_chunk",
+        "revision": 7,
+        "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        "index": 0,
+        "data": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀"
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_partial_hello_binding",
+      "direction": "bridge",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "type": "hello",
+        "token": "vector-pairing-only",
+        "hello_nonce": "other",
+        "source_id": "12345678-1234-5678-1234-567812345679"
+      },
+      "shape_valid": false,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_stale_hello_ack",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "old",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "type": "hello_ack"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore"
+    },
+    {
+      "name": "reject_retained_source_change",
+      "direction": "client",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "payload": {
+        "version": 1,
+        "token": "vector-pairing-only",
+        "hello_nonce": "nonce-vector-1",
+        "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        "source_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "scope_id": "company:1/warehouse:1",
+        "type": "hello_ack"
+      },
+      "shape_valid": true,
+      "accepted": false,
+      "outcome": "ignore"
+    }
+  ],
+  "replays": [
+    {
+      "name": "complete_reordered_duplicate_apply_once",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "envelopes": [
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "hello_ack"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 2,
+          "data": "_orders\":[]}"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 1,
+          "data": "a 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 0,
+          "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 0,
+          "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+        }
+      ],
+      "expected": {
+        "applied_revision": 7,
+        "application_count": 1,
+        "canonical_snapshot_utf8": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work_orders\":[]}"
+      }
+    },
+    {
+      "name": "wrong_byte_length",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "envelopes": [
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "hello_ack"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 893
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 0,
+          "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 1,
+          "data": "a 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 2,
+          "data": "_orders\":[]}"
+        }
+      ],
+      "expected": {
+        "applied_revision": null,
+        "application_count": 0,
+        "reason": "byte_length_mismatch"
+      }
+    },
+    {
+      "name": "missing_chunk",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "envelopes": [
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "hello_ack"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        }
+      ],
+      "expected": {
+        "applied_revision": null,
+        "application_count": 0,
+        "reason": "assembly_incomplete"
+      }
+    },
+    {
+      "name": "invalid_business_reference",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "envelopes": [
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "hello_ack"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 894
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 0,
+          "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 1,
+          "data": "a 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":999}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"wo"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 2,
+          "data": "rk_orders\":[]}"
+        }
+      ],
+      "expected": {
+        "applied_revision": null,
+        "application_count": 0,
+        "reason": "unresolved_unit"
+      }
+    },
+    {
+      "name": "duplicate_begin_preserves_received_chunks",
+      "context": {
+        "token": "vector-pairing-only",
+        "pending_hello_nonce": "nonce-vector-1",
+        "session_id": null,
+        "source_id": "12345678-1234-5678-1234-567812345679",
+        "scope_id": "company:1/warehouse:1",
+        "applied_revision": null
+      },
+      "envelopes": [
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "hello_ack"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 0,
+          "data": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málag"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_begin",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "chunk_count": 3,
+          "byte_length": 892
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 1,
+          "data": "a 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work"
+        },
+        {
+          "version": 1,
+          "token": "vector-pairing-only",
+          "hello_nonce": "nonce-vector-1",
+          "session_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          "source_id": "12345678-1234-5678-1234-567812345679",
+          "scope_id": "company:1/warehouse:1",
+          "type": "snapshot_chunk",
+          "revision": 7,
+          "snapshot_id": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          "index": 2,
+          "data": "_orders\":[]}"
+        }
+      ],
+      "expected": {
+        "applied_revision": 7,
+        "application_count": 1,
+        "canonical_snapshot_utf8": "{\"boms\":[],\"manufacturing_orders\":[],\"material_demands\":[],\"meta\":{\"company_id\":1,\"odoo_base_url\":\"http://127.0.0.1:8069\",\"odoo_major\":20,\"schema_version\":1,\"scope_id\":\"company:1/warehouse:1\",\"source_id\":\"12345678-1234-5678-1234-567812345679\",\"source_read_at\":\"2026-10-09T12:00:00Z\",\"warehouse_id\":1},\"products\":[{\"code\":null,\"id\":1,\"name\":\"Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" Málaga 😀 \\\"pump\\\" \",\"unit_id\":1}],\"stock\":[],\"units\":[{\"id\":1,\"name\":\"Units\",\"rounding\":1.0}],\"work_centers\":[],\"work_orders\":[]}"
+      }
+    }
+  ]
+}
