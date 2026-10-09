@@ -21,7 +21,7 @@ def bootstrap(env):
     key = env['res.users.apikeys'].with_user(bot).sudo()._generate('rpc', 'isolated seeded HTTP probe', None)
     env.cr.commit()
     PROBE_FILE.touch(mode=0o600)
-    PROBE_FILE.write_text(json.dumps({'key': key, 'mo_id': env.ref('factorio_connect_demo.mo_ready').id, 'company_id': env.ref('factorio_connect_demo.company').id, 'fixtures': report.fixture_ids}))
+    PROBE_FILE.write_text(json.dumps({'key': key, 'mo_id': env.ref('factorio_connect_demo.mo_ready').id, 'company_id': env.ref('factorio_connect_demo.company').id, 'source_id': env.ref('factorio_connect_demo.integration_config').source_id, 'scope_id': f"company:{env.ref('factorio_connect_demo.company').id}/warehouse:{env.ref('factorio_connect_demo.warehouse').id}", 'fixtures': report.fixture_ids}))
     print('Committed seed report: ' + json.dumps(asdict(report), sort_keys=True))
 
 

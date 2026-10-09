@@ -1,1 +1,1 @@
-from . import config, factory
+from . import config, factory, automation

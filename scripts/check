@@ -14,7 +14,7 @@ if [[ "$mode" == odoo ]]; then
   export ODOO_IMAGE POSTGRES_IMAGE
   export ODOO_DATABASE=factorio_tests ODOO_HTTP_PORT=8169
   export ODOO_SUBNET=172.29.0.0/24 ODOO_GATEWAY=172.29.0.1
-  export POSTGRES_PASSWORD=${FACTORIO_TEST_DB_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')}
+  export POSTGRES_PASSWORD=${FACTORIO_TEST_DB_PASSWORD:-$(python3 -c 'import secrets; print("factorio-" + secrets.token_urlsafe(32))')}
   compose=(docker compose -p factorio-connect-tests -f "$repo_root/deploy/compose.yaml")
   cleanup() { "${compose[@]}" down -v >/dev/null; }
   trap cleanup EXIT
@@ -26,6 +26,15 @@ from odoo.addons.factorio_connect_demo.tests.json2_probe import bootstrap
 bootstrap(env)
 PYPROBE
   "${compose[@]}" up -d odoo
+  # Exercise the actual bridge client and cache with the isolated bot credential.
+  # The key stays in its mode-0600 test volume file, never argv/environment/logs.
+  "$repo_root/scripts/check" bridge -q tests/test_odoo_client.py tests/test_store.py
+  build_key=$(cat "$repo_root/deploy/Dockerfile.tests" "$repo_root/bridge/requirements-dev.lock" "$repo_root/deploy/versions.env" | sha256sum | cut -c1-20)
+  probe_image=$(docker image inspect --format '{{.Id}}' "factorio-connect-tests:$build_key")
+  docker run --rm --network factorio-connect-tests_default --read-only \
+    --tmpfs /tmp:rw,noexec,nosuid,size=64m -e PYTHONPATH=/repo/bridge/src \
+    -v "$repo_root:/repo:ro" -v factorio-connect-tests_odoo-data:/odoo:ro \
+    --entrypoint python "$probe_image" /repo/bridge/tests/live_seeded_probe.py
   probe_file=$(mktemp "$repo_root/runtime/odoo-json2-XXXXXX.json")
   "${compose[@]}" exec -T odoo python3 /mnt/extra-addons/factorio_connect_demo/tests/json2_probe.py > "$probe_file"
   # Validate the actual HTTP response in the pinned bridge test environment.
