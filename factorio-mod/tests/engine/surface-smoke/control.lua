@@ -7,6 +7,7 @@ local fixture=require('fixture')
 local wire=require('__factorio-connect__/scripts/wire_encode')
 local validation=require('__factorio-connect__/scripts/validation')
 local production_probe=require('production_probe')
+local network_probe=require('network_probe')
 local loaded,finished=false,false
 local function check()
   local current=state.get()
@@ -59,26 +60,28 @@ script.on_init(function()
   storage.smoke_owned={}
   state.get().entity_slots=layout.reconcile(snapshot.work_centers,{})
   local view=model.build(snapshot,{verified=false})
-  assert(#surface.reconcile(view,state.get().entity_slots,storage.smoke_owned)==0)
+  local warnings=surface.reconcile(view,state.get().entity_slots,storage.smoke_owned);assert(#warnings==0,table.concat(warnings,'\n'))
   storage.smoke_identity={}
   for center_id,row in pairs(storage.smoke_owned.stations) do storage.smoke_identity[center_id]=row.entity.unit_number end
   storage.smoke_unrelated=storage.smoke_owned.surface.create_entity{name='steel-chest',position={150,0},force='player'}
-  assert(#surface.reconcile(view,state.get().entity_slots,storage.smoke_owned)==0)
+  local warnings=surface.reconcile(view,state.get().entity_slots,storage.smoke_owned);assert(#warnings==0,table.concat(warnings,'\n'))
   snapshot.work_centers[2].name='Assembly renamed';snapshot.work_centers[2].active=false
   local renamed=model.build(snapshot,{verified=false})
   assert(#surface.reconcile(renamed,state.get().entity_slots,storage.smoke_owned)==0)
   assert(storage.smoke_owned.stations[2].renders[1].text=='Assembly renamed (Archived)')
-  assert(#surface.reconcile(view,state.get().entity_slots,storage.smoke_owned)==0)
+  local warnings=surface.reconcile(view,state.get().entity_slots,storage.smoke_owned);assert(#warnings==0,table.concat(warnings,'\n'))
   -- Exercise actual ownership cleanup, then leave a generated view in the save.
   surface.clear(storage.smoke_owned);assert(storage.smoke_unrelated.valid)
-  assert(#surface.reconcile(view,state.get().entity_slots,storage.smoke_owned)==0)
+  local warnings=surface.reconcile(view,state.get().entity_slots,storage.smoke_owned);assert(#warnings==0,table.concat(warnings,'\n'))
   for center_id,row in pairs(storage.smoke_owned.stations) do storage.smoke_identity[center_id]=row.entity.unit_number end
   production_probe.init(storage.smoke_owned.surface)
+  network_probe.init(storage.smoke_owned.surface)
   log('FC_SURFACE_SMOKE '..helpers.table_to_json(check()))
 end)
 script.on_load(function() loaded=true end)
 script.on_event(defines.events.on_tick,function(event)
   production_probe.tick(event.tick)
+  network_probe.tick(event.tick)
   if finished then return end
   finished=true
   assert(#surface.reconcile(model.build(state.get().snapshot,{verified=false}),state.get().entity_slots,storage.smoke_owned)==0)

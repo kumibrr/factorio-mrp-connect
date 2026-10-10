@@ -39,9 +39,12 @@ return {
       return true
     end
     local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy());local slots=f.module('layout').reconcile(s.work_centers,{})
-    local owned={};local m=f.module('surface');assert(#m.reconcile(v,slots,owned)==1)
+    local owned={};local m=f.module('surface');local warnings=m.reconcile(v,slots,owned)
+    -- Shared routing can also hold another order while this area is obstructed.
+    assert(#warnings>=1,table.concat(warnings,'\n'))
     assert(owned.production[1].incomplete and #owned.production[1].entities==0 and obstacle.valid)
-    obstacle.destroy();assert(#m.reconcile(v,slots,owned)==0 and owned.production[1].source.valid)
+    obstacle.destroy();warnings=m.reconcile(v,slots,owned)
+    assert(#warnings==0 and owned.production[1].source.valid,table.concat(warnings,'\n'))
   end,
   source_output_correction_replaces_only_the_affected_lane=function()
     f.engine();local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy())

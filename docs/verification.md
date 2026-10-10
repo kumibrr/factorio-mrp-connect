@@ -61,7 +61,45 @@ timeout and heartbeat
 recovery decisions to the unchanged production Lua receiver. It is a test
 socket adapter, not a Factorio engine UDP dispatcher or GUI client.
 
-## Physical production flow — 2026-10-10
+## Connected production network — 2026-10-10
+
+The connected network passes native prototype creation and two independent
+12,001-tick save loads: `runtime/surface-smoke-szbv9b_d/report.json`.
+Each load verifies a four-operation diamond: both branches receive their own
+completion receipts, the join waits for both predecessors, and exactly four
+markers reach the final box. Component production delivers 60 completion
+receipts to its shared product area; 10 scaled material-allocation receipts
+reach assembly while authoritative posted stock remains 46. Existing underground
+pairs retain their connections when crossing routes are added. Native probes
+use the production six-tick update cadence.
+
+The original transport checks also pass: backpressure, ready TODO work,
+shortage holding, exactly three partial-output markers, all 80 final markers,
+and persisted entity identity and release ledgers. `./scripts/check lua`
+passes all 76 cases after the routing recovery fix. Focused packaging and
+check-harness tests pass all nine cases. Pure Lua coverage includes graph
+validation, material assignment and units, bounded dispatch, allocation
+corrections, consumer addition/removal, work-center reassignment and routing.
+
+This is synthetic snapshot acceptance in Factorio 2.0.77 headless. Licensed
+desktop appearance and live Odoo-to-engine transport remain unexecuted.
+The snapshot does not identify a specific supplying manufacturing order;
+component output connects to a shared product/location area only when its
+destination is unambiguous. Invalid material assignments exclude the affected
+physical order instead of bypassing its material gate.
+
+The regenerated `dist/factorio-connect_0.1.0.zip` contains 20 runtime files
+matching the working tree byte-for-byte; all ZIP CRCs validate. SHA-256:
+`a1e283a0012cfb200d3b0819d9806677df709c9f7a1a097a491f4d9b946c4ee5`.
+
+An obstruction-recovery regression initially exposed a nearest-exit-only
+underground search: an exit could be clear but unable to take its required next
+step, while a farther legal exit was never tried. The router now searches every
+legal exit, ignores stale heap entries and caches fixed tile clearance. A focused
+regression verifies the shorter crossing, and removal of an obstacle rebuilds
+all held orders without duplicate transport or unrelated-entity removal.
+
+## Physical production flow — 2026-10-10 (preceding linear implementation)
 
 `./scripts/check lua`: 59 passed, 0 failed. Focused bridge packaging/check-harness
 checks: 9 passed. `./scripts/package-mod` generated the runtime-only archive;

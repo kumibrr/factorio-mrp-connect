@@ -23,3 +23,15 @@ ledger without duplicating output. This validates persisted partial state, not a
 mid-benchmark server save. Same-snapshot reconciliation preserves lane identity
 and does not refill the source box. `report.json` contains production evidence
 for both benchmark runs. Desktop GUI appearance remains unexecuted.
+
+Connected-network acceptance adds a native four-operation diamond. One branch
+finishes while the other is held; the join must retain the first receipt and
+release nothing until both arrive. All four final markers must then reach the
+completion box. A component order delivers 60 completion receipts into a shared
+product area, while assembly receives only its 10 scaled allocation receipts
+and the separately mirrored posted stock remains 46. A crossing-route fixture
+checks that newly placed underground pairs do not steal an existing pair's
+connection. Both loads check network entity identity and dispatch idempotence.
+Network and physical-flow probes update on the mod's six-tick cadence while
+native belts and inserters continue moving every tick. Their evidence appears
+under `network` and `production` in each load's report.

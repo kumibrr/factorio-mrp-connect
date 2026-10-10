@@ -67,13 +67,33 @@ bridge/game settings. The shared `factorio_connect_common` redactor handles
 webhook paths/bearer values in both processes. See [the approved design](superpowers/specs/2026-10-09-factorio-odoo-mrp-design.md)
 for the full protocol and security contracts.
 
-The generated surface also has one physical lane per supported MO. Native,
-protected boxes, void-powered inserters, active belts and assembler input/output
-inventories transport bounded visual workpiece markers. Assemblers have locked
-display recipes and stay inactive: only accepted WO output/completion lets the
-mod transfer markers from input to output. Ready/blocked work waits on incoming
-belts and native belt/inventory capacity supplies backpressure. A material warning
-holds the raw feed. No physical inventory is exported to Odoo or treated as stock.
-Lane entities, positions, release counts and observed-game-time clocks persist
-in mod-owned storage. Recorded duration and optional remaining estimates stay
-separate from observed running time. See the [physical flow design](superpowers/specs/2026-10-10-production-flow-design.md).
+The generated surface groups operations into shared work-center areas. A pure
+DAG planner orders actual work-order dependencies and a tile router connects
+owned boxes, inserters and belts with underground crossings. Dedicated paths
+retain order identity. Branch dispatch creates one completion receipt per
+successor; joins require a receipt from every predecessor before admitting a
+workpiece. These receipts never multiply Odoo output. Cycles, missing
+predecessors, ambiguous material assignments and unequal batch quantities
+produce routing warnings rather than fabricated transport.
+
+Material demand is assigned using source BOM operations. Product/location
+buffers connect manufactured-component completion routes to shared supply areas
+and send separate allocation markers to consuming operations, bounded by Odoo's
+disjoint reserved, picked and posted-consumed quantities. Each allocation marker
+represents the component quantity required by one scaled order workpiece. Every
+component receipt must arrive before that operation releases output. A completed
+component receipt never increments the buffer's separately displayed posted
+stock. The source contract has no supplier-MO assignment, so product-pool routes
+cannot assert which order supplied a particular reservation.
+
+Assemblers have locked display recipes and remain inactive. Accepted WO
+output/completion gates scripted conversion of native input to output; belts and
+inserters carry the actual markers. Ready/blocked operations wait on their TODO
+belts and native capacity supplies backpressure. Material warnings hold raw
+feeds. Entity references, stable center slots, join/dispatch/release counters and
+observed-game-time clocks persist. Quantity/routing/center changes or downward
+output/allocation corrections rebuild the affected order. Producer destinations
+are included in its routing identity. No physical inventory is exported to Odoo
+or treated as business stock. Recorded duration and remaining estimates stay
+separate from observed running time. See the
+[network design](superpowers/specs/2026-10-10-production-network-design.md).

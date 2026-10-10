@@ -13,7 +13,10 @@ function M.engine()
   local entities,renders={},{}
   local surface={name='odoo-factory',valid=true}
   surface.create_entity=function(spec)
-    local e={name=spec.name,position=spec.position,valid=true,surface=surface,unit_number=#entities+1}
+    for _,entity in ipairs(entities) do
+      if entity.valid and entity.position.x==spec.position.x and entity.position.y==spec.position.y then return nil end
+    end
+    local e={name=spec.name,position=spec.position,direction=spec.direction,belt_to_ground_type=spec.type,valid=true,surface=surface,unit_number=#entities+1}
     local inventories={}
     e.set_recipe=function(recipe) e.recipe=recipe end
     e.get_inventory=function(kind)
@@ -37,6 +40,7 @@ function M.engine()
   _G.rendering={}
   for _,method in ipairs({'draw_text','draw_line'}) do
     rendering[method]=function(spec)
+      assert(spec.color==nil or type(spec.color)=='table','rendering color must be a table')
       local r={valid=true,text=spec.text,color=spec.color,target=spec.target}
       r.destroy=function() r.valid=false end
       renders[#renders+1]=r; return r

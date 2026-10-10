@@ -60,7 +60,7 @@ function M.show(player,view,center_id)
   if location then panel.location=location else panel.auto_center=true end
   local controls=panel.add{type='flow',name='fc_controls',direction='horizontal'}
   controls.add{type='button',name='fc_close',caption='Close'}
-  controls.add{type='button',name='fc_jump',caption='Jump to production lane',enabled=view.surface_available==true}
+  controls.add{type='button',name='fc_jump',caption='Jump to production area',enabled=view.surface_available==true}
   controls.add{type='button',name='fc_repair',caption='Local re-pair…'}
   for i,text in ipairs(synchronization(view)) do label(panel,text,nil,'fc_sync_'..i) end
   label(panel,'Freshness is reported by the bridge; paused game time does not establish wall-clock freshness.',vm.palette.idle)
@@ -89,8 +89,8 @@ function M.show(player,view,center_id)
   label(scroll,'Legend')
   label(scroll,'● Green — running orders',vm.palette.running);label(scroll,'● Blue — operation ready',vm.palette.ready)
   label(scroll,'● Amber — dependency or MO material attention',vm.palette.attention);label(scroll,'● Gray — idle / terminal history',vm.palette.idle)
-  label(scroll,'Production lanes move visual workpieces: raw-material box → TODO belt → machines → production-complete box. Full belts stop inserters; ready/blocked work waits on its belt. Machines release only Odoo-reported output.',vm.palette.idle)
-  label(scroll,'Workpiece markers represent batch quantities (scaled above 200 markers), not stock or individual BOM components. Completion boxes show operation output; posted stock is separate. Overview belts show intended BOM links.',vm.palette.idle)
+  label(scroll,'Production routes move visual workpieces: raw-material box → TODO belt → machines → production-complete box. Full belts stop inserters; ready/blocked work waits on its belt. Machines release only Odoo-reported output.',vm.palette.idle)
+  label(scroll,'Shared work-center areas connect order operations. Branches carry dependency receipts; merges wait for every predecessor. Shared product buffers feed Odoo-allocated material markers, scaled per workpiece. Operation-complete receipts and posted stock remain separate.',vm.palette.idle)
   label(scroll,'Elapsed and expected time come from Odoo. Remaining time is an estimate. Observed running uses unpaused game time while synchronization is healthy.',vm.palette.idle)
   return panel
 end
