@@ -1,0 +1,52 @@
+local f=require('view_fixtures')
+local function model() return f.module('view_model').build(f.snapshot(),f.healthy()) end
+return {
+  lanes_follow_dependencies_and_exclude_cancelled_orders=function()
+    local flows,warnings=f.module('production').plan(model())
+    assert(#warnings==0 and #flows==7)
+    local lane=flows[6]
+    assert(lane.mo_id==6 and lane.operations[1].id==14 and lane.operations[2].id==15 and lane.operations[3].id==16)
+    assert(lane.count==10 and lane.quantum==1)
+  end,
+  backorders_do_not_recreate_carried_output=function()
+    local flows=f.module('production').plan(model())
+    assert(flows[4].count==6 and flows[4].quantity==6)
+  end,
+  fractional_and_large_batches_are_bounded_without_changing_source_quantities=function()
+    local v=model();v.orders[1].operations[1].required_qty=1000.5
+    local flows=f.module('production').plan(v)
+    assert(flows[1].count==200 and flows[1].quantum==5.0025 and flows[1].quantity==1000.5)
+    assert(v.orders[1].operations[1].required_qty==1000.5)
+    v.orders[1].operations[1].required_qty=0.25
+    flows=f.module('production').plan(v);assert(flows[1].count==1 and flows[1].quantum==0.25)
+  end,
+  ambiguous_dependencies_never_invent_a_serial_route=function()
+    local v=model();v.orders[6].operations[2].dependency_ids={}
+    local flows,warnings=f.module('production').plan(v)
+    assert(#flows==6 and #warnings==1)
+    for _,lane in ipairs(flows) do assert(lane.mo_id~=6) end
+  end,
+  release_budget_requires_recorded_output_or_done=function()
+    local p=f.module('production');local op=model().orders[6].operations[1]
+    assert(p.budget(op,1,10)==0)
+    op.output_qty=3;assert(p.budget(op,1,10)==3)
+    op.output_qty=nil;assert(p.budget(op,1,10)==0)
+    op.raw_state='done';assert(p.budget(op,1,10)==10)
+    op.raw_state='cancel';assert(p.budget(op,1,10)==0)
+  end,
+  estimated_remaining_is_not_invented_when_elapsed_is_unknown=function()
+    local p=f.module('production');local op=model().orders[6].operations[1]
+    assert(p.timing(op):find('Remaining estimate Unknown',1,true))
+    op.elapsed_minutes=12;assert(p.timing(op):find('Remaining estimate 38 min',1,true))
+    op.elapsed_minutes=70;assert(p.timing(op):find('Over expected by 20 min',1,true))
+    op.expected_minutes=0;assert(p.timing(op):find('Remaining estimate Unknown',1,true))
+  end,
+  observed_clock_pauses_without_healthy_source_and_resets_between_runs=function()
+    local p=f.module('production');local op=model().orders[6].operations[1];local clock={}
+    p.observe(op,clock,0,true);p.observe(op,clock,120,true);assert(clock.ticks==120)
+    p.observe(op,clock,240,false);p.observe(op,clock,360,true);assert(clock.ticks==120)
+    p.observe(op,clock,420,true);assert(clock.ticks==180)
+    op.raw_state='done';p.observe(op,clock,480,true);assert(clock.ticks==180)
+    op.raw_state='progress';p.observe(op,clock,540,true);assert(clock.ticks==0)
+  end
+}

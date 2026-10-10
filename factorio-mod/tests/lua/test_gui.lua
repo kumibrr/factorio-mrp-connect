@@ -1,5 +1,16 @@
 local f=require('view_fixtures')
 return {
+  running_timer_refresh_preserves_record_selection=function()
+    local p=f.player();local gui=f.module('gui');local v=f.module('view_model').build(f.snapshot(),f.healthy());v.revision=7
+    v.orders[6].operations[1].running_label='Elapsed 12 min | Expected 50 min | Remaining estimate 38 min | Observed running 00:01 (game time)'
+    gui.show(p,v,2)
+    local field=f.find(p.gui.screen,'fc_record_14');gui.handle(p,{element=field},v)
+    assert(f.texts(p.gui.screen):find('Remaining estimate 38 min',1,true))
+    v.orders[6].operations[1].running_label='Elapsed 12 min | Expected 50 min | Remaining estimate 38 min | Observed running 00:02 (game time)'
+    gui.update(p,v)
+    assert(f.texts(p.gui.screen):find('Observed running 00:02',1,true))
+    assert(field.valid and field.selected)
+  end,
   opening_factory_panel_uses_native_auto_center_property=function()
     local p=f.player();local gui=f.module('gui')
     local view=f.module('view_model').build(f.snapshot(),f.healthy())

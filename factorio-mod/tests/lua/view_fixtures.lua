@@ -14,6 +14,21 @@ function M.engine()
   local surface={name='odoo-factory',valid=true}
   surface.create_entity=function(spec)
     local e={name=spec.name,position=spec.position,valid=true,surface=surface,unit_number=#entities+1}
+    local inventories={}
+    e.set_recipe=function(recipe) e.recipe=recipe end
+    e.get_inventory=function(kind)
+      if not inventories[kind] then
+        local items={};local inventory={}
+        inventory.get_item_count=function(name) return items[name] or 0 end
+        inventory.insert=function(stack) items[stack.name]=(items[stack.name] or 0)+stack.count;return stack.count end
+        inventory.remove=function(stack)
+          local n=math.min(items[stack.name] or 0,stack.count);items[stack.name]=(items[stack.name] or 0)-n;return n
+        end
+        inventory.is_empty=function() for _,n in pairs(items) do if n>0 then return false end end;return true end
+        inventories[kind]=inventory
+      end
+      return inventories[kind]
+    end
     e.destroy=function() e.valid=false end
     entities[#entities+1]=e; return e
   end
@@ -27,7 +42,7 @@ function M.engine()
       renders[#renders+1]=r; return r
     end
   end
-  _G.defines={direction={east=4,south=8,west=12,north=0}}
+  _G.defines={direction={east=4,south=8,west=12,north=0},inventory={chest=1,assembling_machine_input=2,assembling_machine_output=3}}
   return surface,entities,renders
 end
 local function element(spec,parent)

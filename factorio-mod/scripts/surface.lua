@@ -1,4 +1,5 @@
 local vm=require('scripts.view_model')
+local production=require('scripts.production_surface')
 local M={}
 local kinds={MACH='machining',ASSY='assembly',INSP='inspection',PACK='packing'}
 local function destroy(objects)
@@ -9,6 +10,7 @@ local function remove(row)
   destroy(row.entities);destroy(row.renders)
 end
 function M.clear(owned)
+  production.clear(owned)
   for _,row in pairs(owned.stations or {}) do remove(row) end
   for _,targets in pairs(owned.links or {}) do for _,row in pairs(targets) do remove(row) end end
   owned.stations={};owned.links={}
@@ -110,10 +112,15 @@ function M.reconcile(view,slots,owned)
       if r and r.valid then r.text=link.label else row.renders[1]=text(surface,row.target,link.label,vm.palette.ready) end
     end
   end
+  local base_y=40
+  for _,slot in pairs(slots) do base_y=math.max(base_y,slot.position.y+40) end
+  for _,warning in ipairs(production.reconcile(view,owned,base_y)) do warnings[#warnings+1]=warning end
   return warnings
 end
+function M.update(view,owned,tick) production.update(view,owned,tick) end
 function M.center_for_entity(owned,entity)
   if not entity or not entity.valid then return nil end
   for center_id,row in pairs(owned.stations or {}) do if row.entity==entity then return center_id end end
+  return production.center_for_entity(owned,entity)
 end
 return M

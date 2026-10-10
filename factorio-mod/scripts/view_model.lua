@@ -120,6 +120,7 @@ function M.build(snapshot,status)
     local order,center=v.orders[wo.mo_id],v.centers[wo.center_id]
     if order and center then
       local op={id=wo.id,mo_id=wo.mo_id,center_id=wo.center_id,operation_id=wo.operation_id,raw_state=wo.raw_state,
+        dependency_ids=wo.dependency_ids,sequence=wo.sequence,unit_label=unit(wo.unit_id),
         state_label=label(wo.raw_state,wo_labels),output_qty=wo.output_qty,carried_qty=wo.carried_qty,required_qty=wo.required_qty,
         remaining_qty=wo.remaining_qty,ready_qty=wo.ready_qty,expected_minutes=wo.expected_minutes,elapsed_minutes=wo.elapsed_minutes,
         quantity_ratio=ratio(wo.output_qty,wo.carried_qty,wo.required_qty),

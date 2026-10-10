@@ -1,5 +1,57 @@
 local f=require('view_fixtures')
 return {
+  removed_operations_cannot_accumulate_observed_running_time=function()
+    f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
+    local m=f.module('surface');local owned={}
+    m.update(v,owned,0);m.update(v,owned,60);assert(owned.production_clocks[14].ticks==60)
+    local order=v.orders[6];v.orders[6]=nil;m.update(v,owned,600)
+    v.orders[6]=order;m.update(v,owned,1200)
+    assert(owned.production_clocks[14].ticks==0)
+  end,
+  new_summary_rows_do_not_reseed_existing_production=function()
+    f.engine();local s=f.snapshot();local m=f.module('surface');local owned={}
+    local slots=f.module('layout').reconcile(s.work_centers,{})
+    m.reconcile(f.module('view_model').build(s,f.healthy()),slots,owned)
+    local lane=owned.production[6];lane.machines[1].released=3;s.work_orders[14].output_qty=3
+    for key=5,9 do s.work_centers[#s.work_centers+1]={id=key,name='New center',code='NEW',active=true} end
+    slots=f.module('layout').reconcile(s.work_centers,slots)
+    m.reconcile(f.module('view_model').build(s,f.healthy()),slots,owned)
+    assert(owned.production[6]==lane and lane.source.valid and lane.machines[1].released==3)
+  end,
+  production_lanes_preserve_identity_and_cleanup_only_cancelled_work=function()
+    local _,_,_=f.engine();local s=f.snapshot();local m=f.module('surface');local owned={}
+    local slots=f.module('layout').reconcile(s.work_centers,{})
+    local v=f.module('view_model').build(s,f.healthy());assert(#m.reconcile(v,slots,owned)==0)
+    local lane=owned.production[6];local machine=lane.machines[1].entity
+    assert(m.center_for_entity(owned,machine)==2)
+    assert(lane.source.get_inventory(defines.inventory.chest).get_item_count('fc-raw-material')==10)
+    assert(owned.production[4].source.get_inventory(defines.inventory.chest).get_item_count('fc-raw-material')==6)
+    assert(not owned.production[8])
+    m.reconcile(v,slots,owned);assert(owned.production[6].machines[1].entity==machine)
+    s.manufacturing_orders[6].raw_state='cancel';v=f.module('view_model').build(s,f.healthy())
+    m.reconcile(v,slots,owned);assert(not machine.valid and not owned.production[6])
+    assert(owned.production[4].source.valid and owned.stations[2].entity.valid)
+  end,
+  production_obstruction_never_starts_a_partial_lane=function()
+    local surface,entities=f.engine();local obstacle=surface.create_entity{name='steel-chest',position={x=-4,y=40}}
+    surface.can_place_entity=function(spec)
+      for _,e in ipairs(entities) do if e.valid and e.position.x==spec.position.x and e.position.y==spec.position.y then return false end end
+      return true
+    end
+    local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy());local slots=f.module('layout').reconcile(s.work_centers,{})
+    local owned={};local m=f.module('surface');assert(#m.reconcile(v,slots,owned)==1)
+    assert(owned.production[1].incomplete and #owned.production[1].entities==0 and obstacle.valid)
+    obstacle.destroy();assert(#m.reconcile(v,slots,owned)==0 and owned.production[1].source.valid)
+  end,
+  source_output_correction_replaces_only_the_affected_lane=function()
+    f.engine();local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy())
+    local slots=f.module('layout').reconcile(s.work_centers,{});local owned={};local m=f.module('surface')
+    m.reconcile(v,slots,owned);local lane=owned.production[6];local other=owned.production[5].source
+    lane.machines[1].released=3;s.work_orders[14].output_qty=1
+    m.reconcile(f.module('view_model').build(s,f.healthy()),slots,owned)
+    assert(not lane.source.valid and owned.production[6].machines[1].released==0)
+    assert(owned.production[5].source==other and other.valid)
+  end,
   workflow_obstruction_stays_visible_until_resolved=function()
     local surface,entities=f.engine();local obstacle=surface.create_entity{name='steel-chest',position={x=12,y=10}}
     surface.can_place_entity=function(spec)

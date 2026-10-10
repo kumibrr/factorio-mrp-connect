@@ -66,3 +66,14 @@ in administrative Odoo/bridge settings, and the pairing token only in local
 bridge/game settings. The shared `factorio_connect_common` redactor handles
 webhook paths/bearer values in both processes. See [the approved design](superpowers/specs/2026-10-09-factorio-odoo-mrp-design.md)
 for the full protocol and security contracts.
+
+The generated surface also has one physical lane per supported MO. Native,
+protected boxes, void-powered inserters, active belts and assembler input/output
+inventories transport bounded visual workpiece markers. Assemblers have locked
+display recipes and stay inactive: only accepted WO output/completion lets the
+mod transfer markers from input to output. Ready/blocked work waits on incoming
+belts and native belt/inventory capacity supplies backpressure. A material warning
+holds the raw feed. No physical inventory is exported to Odoo or treated as stock.
+Lane entities, positions, release counts and observed-game-time clocks persist
+in mod-owned storage. Recorded duration and optional remaining estimates stay
+separate from observed running time. See the [physical flow design](superpowers/specs/2026-10-10-production-flow-design.md).

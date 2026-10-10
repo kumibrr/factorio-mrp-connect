@@ -1,4 +1,5 @@
 local vm=require('scripts.view_model')
+local production=require('scripts.production')
 local M={}
 local function label(parent,value,color,name)
   local e=parent.add{type='label',caption=value,name=name}
@@ -30,7 +31,13 @@ local function order_detail(parent,row,history)
   label(frame,order.quantity_label);label(frame,order.dates_label);label(frame,order.readiness_label)
   label(frame,'WO '..string.format('%d',op.id)..' | Operation '..string.format('%d',op.operation_id)..' | '..op.state_label..' (raw '..vm.plain(op.raw_state)..')')
   progress(frame,op.quantity_ratio,'Operation quantity: '..op.quantity_label,history and vm.palette.idle or vm.palette.running)
-  progress(frame,op.time_ratio,'Operation time: '..op.time_label,vm.palette.ready)
+  local timer=frame.add{type='label',name='fc_timer_'..string.format('%d',op.id),
+    caption='Operation time: '..(op.running_label or production.timing(op)),tags={fc_timer_id=op.id}}
+  timer.style.font_color=vm.palette.ready;timer.style.single_line=false;timer.style.maximal_width=850
+  if op.time_ratio~=nil then
+    local bar=frame.add{type='progressbar',value=math.max(0,math.min(1,op.time_ratio))}
+    bar.style.width=250;bar.style.color=vm.palette.ready
+  end
   label(frame,'Predecessors: '..op.dependency_label,op.raw_state=='blocked' and vm.palette.attention or vm.palette.idle)
   label(frame,'MO material evidence (applies to this order; no per-operation assignment available)',vm.palette.attention)
   if #order.materials==0 then label(frame,'Material evidence unavailable') end
@@ -53,7 +60,7 @@ function M.show(player,view,center_id)
   if location then panel.location=location else panel.auto_center=true end
   local controls=panel.add{type='flow',name='fc_controls',direction='horizontal'}
   controls.add{type='button',name='fc_close',caption='Close'}
-  controls.add{type='button',name='fc_jump',caption='Jump to generated surface',enabled=view.surface_available==true}
+  controls.add{type='button',name='fc_jump',caption='Jump to production lane',enabled=view.surface_available==true}
   controls.add{type='button',name='fc_repair',caption='Local re-pair…'}
   for i,text in ipairs(synchronization(view)) do label(panel,text,nil,'fc_sync_'..i) end
   label(panel,'Freshness is reported by the bridge; paused game time does not establish wall-clock freshness.',vm.palette.idle)
@@ -82,7 +89,9 @@ function M.show(player,view,center_id)
   label(scroll,'Legend')
   label(scroll,'● Green — running orders',vm.palette.running);label(scroll,'● Blue — operation ready',vm.palette.ready)
   label(scroll,'● Amber — dependency or MO material attention',vm.palette.attention);label(scroll,'● Gray — idle / terminal history',vm.palette.idle)
-  label(scroll,'Belts show intended operation/BOM workflow; they do not measure stock transport. Quantities and time come only from accepted Odoo snapshots.',vm.palette.idle)
+  label(scroll,'Production lanes move visual workpieces: raw-material box → TODO belt → machines → production-complete box. Full belts stop inserters; ready/blocked work waits on its belt. Machines release only Odoo-reported output.',vm.palette.idle)
+  label(scroll,'Workpiece markers represent batch quantities (scaled above 200 markers), not stock or individual BOM components. Completion boxes show operation output; posted stock is separate. Overview belts show intended BOM links.',vm.palette.idle)
+  label(scroll,'Elapsed and expected time come from Odoo. Remaining time is an estimate. Observed running uses unpaused game time while synchronization is healthy.',vm.palette.idle)
   return panel
 end
 function M.update(player,view)
@@ -93,6 +102,16 @@ function M.update(player,view)
   panel.fc_controls.fc_jump.enabled=view.surface_available==true
   panel.fc_warnings.clear()
   for _,warning in ipairs(view.warnings) do label(panel.fc_warnings,'Data/display warning: '..warning,vm.palette.attention) end
+  local timers={}
+  for _,order in pairs(view.orders) do for _,op in ipairs(order.operations) do timers[op.id]=op end end
+  local function update_timers(parent)
+    for _,child in pairs(parent.children) do
+      local key=child.tags and child.tags.fc_timer_id
+      if key and timers[key] then child.caption='Operation time: '..(timers[key].running_label or production.timing(timers[key])) end
+      update_timers(child)
+    end
+  end
+  update_timers(panel)
 end
 function M.handle(player,event,view)
   local e=event.element
@@ -103,7 +122,9 @@ function M.handle(player,event,view)
   elseif e.tags and e.tags.fc_center_id then M.show(player,view,e.tags.fc_center_id)
   elseif e.tags and e.tags.fc_record then e.focus();e.select_all()
   elseif e.name=='fc_jump' and view.surface_available and game.surfaces['odoo-factory'] then
-    local target={x=-5,y=0};local surface=game.surfaces['odoo-factory']
+    local center_id=panel and panel.tags.center_id
+    local target=view.production_positions and view.production_positions[center_id] or {x=-5,y=0}
+    local surface=game.surfaces['odoo-factory']
     local character=player.character
     if character and character.valid then target=surface.find_non_colliding_position(character.name,target,20,0.5) end
     if target then player.teleport(target,surface) end

@@ -20,6 +20,32 @@ Packing are waiting for predecessors. No Factorio inventory or power determines
 these states. Order origin markers identify scenarios regardless of generated
 MO sequence numbers.
 
+Each supported MO now has its own physical production lane below the center
+overview. Use **Jump to production lane** to visit work at the selected center;
+running work takes priority. A raw-material box feeds the first TODO belt via an
+inserter. Ready and blocked operations leave work on the incoming belt; running
+operations receive it through another inserter. Full belts naturally stop their
+feed inserters. Machines release work only up to Odoo-recorded output, or when
+Odoo reports the operation done. Output travels by inserter and belt to the next
+machine, ending in a production-complete box. The shortage order holds its raw
+feed until the material warning clears.
+
+Items are visual workpiece markers, not Odoo stock or individual BOM components.
+Each lane labels its quantity and quantity per marker; large batches use at most
+200 markers. The backorder lane represents only its six outstanding units, not
+its four carried units. Completed-operation markers in the final box do not
+establish posted finished stock. Cancelled MOs have no physical lane. Workflows
+with branching, missing dependencies or unequal batch quantities retain source
+details and show a routing warning instead of a misleading serial lane.
+
+Machine labels and order details show recorded elapsed/expected duration and a
+remaining-time estimate when those values are known. The separate **Observed
+running** timer counts unpaused game time while synchronization is healthy; it
+is not Odoo duration or wall-clock freshness. Existing saves acquire lanes on
+the next reconciliation; ordinary snapshots and reloads preserve entities,
+inventories and release counts. Changed routing/quantity or a correction below
+already released output rebuilds only the affected lane.
+
 The following exact commands use the `demo` wrapper from local setup, run
 trusted local Odoo ORM actions as administrator and commit business changes.
 They are alternatives to the Manufacturing UI; no raw state/reservation writes
