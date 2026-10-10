@@ -11,3 +11,15 @@ tracked cleanup preserving an unrelated chest, seeded display counts and stock,
 and serialized entity/render identity across two loads. This is a synthetic
 snapshot fixture. It does not establish live Odoo/UDP behavior or execute a GUI.
 Task 9 still requires the licensed single-player client for actual GUI acceptance.
+
+Physical-flow acceptance additionally runs 12,001 ticks on each save load using
+real prototype inventories, powered inserters and moving belts. It checks a full
+TODO belt leaves work in the source box, ready work stays on its belt, shortage
+holds the source feed, no elapsed ticks invent output, partial output releases
+exactly three markers, downstream stages stay gated, and all 80 completed markers
+reach the final box. A separately initialized partial-output lane is saved with
+three released markers; both loads preserve its entity identity and release
+ledger without duplicating output. This validates persisted partial state, not a
+mid-benchmark server save. Same-snapshot reconciliation preserves lane identity
+and does not refill the source box. `report.json` contains production evidence
+for both benchmark runs. Desktop GUI appearance remains unexecuted.

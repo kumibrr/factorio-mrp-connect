@@ -61,6 +61,29 @@ timeout and heartbeat
 recovery decisions to the unchanged production Lua receiver. It is a test
 socket adapter, not a Factorio engine UDP dispatcher or GUI client.
 
+## Physical production flow — 2026-10-10
+
+`./scripts/check lua`: 59 passed, 0 failed. Focused bridge packaging/check-harness
+checks: 9 passed. `./scripts/package-mod` generated the runtime-only archive;
+its production modules match the working tree. `git diff --check` passed.
+
+`./scripts/check factorio` passed prototype creation and two independent
+12,001-tick save loads. Evidence: `runtime/surface-smoke-7z8fv2z9/report.json`.
+Both native production reports confirm full-belt backpressure, ready work on its
+TODO belt, shortage feed holding, exactly three partially released markers, all
+80 completed markers in the final box, and preserved partial-output ledger and
+entity identity without duplicate output. The partial lane is initialized with
+released output before `--create` saves it; this is persisted-state acceptance,
+not an in-flight benchmark save. Existing ownership/rename/cleanup and wire-codec
+checks also passed. Independent code review findings were addressed and Lua
+regressions cover added-center stability, corrected output and absent clocks.
+
+Physical items represent labelled visual batch quantities; they do not verify
+BOM stock transport or posted inventory. Branched/missing dependency chains and
+unequal operation batches warn rather than generate a misleading route. Licensed
+desktop GUI appearance and a live Odoo-to-engine transport run for this new
+surface feature remain unexecuted; prior backend evidence below is unchanged.
+
 ## Passed
 
 | Command | Result | Elapsed wall time | Evidence |

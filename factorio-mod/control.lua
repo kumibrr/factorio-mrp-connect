@@ -26,6 +26,7 @@ local function refresh(reconcile)
   if not current or not current.snapshot then rendered_revision=current and current.revision or 0 end
   for _,warning in ipairs(registry.warnings or {}) do view.warnings[#view.warnings+1]=warning end
   view.surface_available=registry.surface~=nil and registry.surface.valid
+  surface.update(view,registry,game.tick)
   for _,player in pairs(game.players) do gui.ensure_button(player);gui.update(player,view) end
 end
 local function supported()
@@ -63,6 +64,8 @@ script.on_event(defines.events.on_tick,function(event)
   local current=state.get()
   if not view or current.revision~=rendered_revision or event.tick%60==0 then
     refresh(not view or current.revision~=rendered_revision or event.tick%300==0)
+  elseif event.tick%6==0 then
+    surface.update(view,owned(),event.tick)
   end
 end)
 script.on_event(defines.events.on_udp_packet_received,function(event)

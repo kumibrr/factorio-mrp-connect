@@ -6,6 +6,7 @@ local surface=require('__factorio-connect__/scripts/surface')
 local fixture=require('fixture')
 local wire=require('__factorio-connect__/scripts/wire_encode')
 local validation=require('__factorio-connect__/scripts/validation')
+local production_probe=require('production_probe')
 local loaded,finished=false,false
 local function check()
   local current=state.get()
@@ -72,10 +73,12 @@ script.on_init(function()
   surface.clear(storage.smoke_owned);assert(storage.smoke_unrelated.valid)
   assert(#surface.reconcile(view,state.get().entity_slots,storage.smoke_owned)==0)
   for center_id,row in pairs(storage.smoke_owned.stations) do storage.smoke_identity[center_id]=row.entity.unit_number end
+  production_probe.init(storage.smoke_owned.surface)
   log('FC_SURFACE_SMOKE '..helpers.table_to_json(check()))
 end)
 script.on_load(function() loaded=true end)
-script.on_event(defines.events.on_tick,function()
+script.on_event(defines.events.on_tick,function(event)
+  production_probe.tick(event.tick)
   if finished then return end
   finished=true
   assert(#surface.reconcile(model.build(state.get().snapshot,{verified=false}),state.get().entity_slots,storage.smoke_owned)==0)
