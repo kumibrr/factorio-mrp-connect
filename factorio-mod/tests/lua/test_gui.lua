@@ -1,5 +1,14 @@
 local f=require('view_fixtures')
 return {
+  opening_factory_panel_uses_native_auto_center_property=function()
+    local p=f.player();local gui=f.module('gui')
+    local view=f.module('view_model').build(f.snapshot(),f.healthy())
+    gui.ensure_button(p)
+    gui.handle(p,{element=p.gui.top.fc_open},view)
+    local panel=p.gui.screen.fc_panel
+    assert(panel and panel.valid and panel.auto_center==true)
+    assert(f.texts(panel):find('Machining',1,true))
+  end,
   health_refresh_preserves_copyable_field_and_selected_text=function()
     local p=f.player();local m=f.module('gui');local v=f.module('view_model').build(f.snapshot(),f.healthy());v.revision=7
     m.show(p,v,2);local field=f.find(p.gui.screen,'fc_record_17');m.handle(p,{element=field},v)
@@ -11,7 +20,7 @@ return {
     local p=f.player();local m=f.module('gui');local v=f.module('view_model').build(f.snapshot(),f.healthy())
     m.show(p,v,2);local text=f.texts(p.gui.screen)
     for _,value in ipairs({'Running 1','Ready 3','PUMP/MO/00007','Electric motor','Demand 8 Units','Reserved 2 Units','Unreserved 6 Units','Forecast Unknown','History','Posted 4 Units','Outstanding','Legend','2026-10-09T12:00:00Z','http://localhost:8069/odoo/mrp.production/7'}) do assert(text:find(value,1,true),value..' missing') end
-    local field=f.find(p.gui.screen,'fc_record_17');assert(field.type=='textfield' and field.read_only)
+    local field=f.find(p.gui.screen,'fc_record_17');assert(field.type=='text-box' and field.read_only)
     m.handle(p,{element=field},v);assert(field.selected)
   end,
   local_repair_requires_confirmation_and_surface_jump_is_local=function()

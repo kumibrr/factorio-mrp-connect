@@ -42,15 +42,15 @@ local function order_detail(parent,row,history)
     end
   end
   label(frame,'Odoo record URL — select and copy into your browser')
-  local field=frame.add{type='textfield',name='fc_record_'..string.format('%d',op.id),text=order.record_url,tags={fc_record=true}}
-  field.read_only=true;field.style.width=800
+  local field=frame.add{type='text-box',name='fc_record_'..string.format('%d',op.id),text=order.record_url,tags={fc_record=true}}
+  field.read_only=true;field.word_wrap=false;field.style.width=800;field.style.height=36
 end
 function M.show(player,view,center_id)
   local previous=player.gui.screen.fc_panel
   local location=previous and previous.valid and previous.location or nil
   if previous then previous.destroy() end
   local panel=player.gui.screen.add{type='frame',name='fc_panel',direction='vertical',caption='Odoo operational factory',tags={center_id=center_id,revision=view.revision}}
-  if location then panel.location=location else panel.auto_center() end
+  if location then panel.location=location else panel.auto_center=true end
   local controls=panel.add{type='flow',name='fc_controls',direction='horizontal'}
   controls.add{type='button',name='fc_close',caption='Close'}
   controls.add{type='button',name='fc_jump',caption='Jump to generated surface',enabled=view.surface_available==true}

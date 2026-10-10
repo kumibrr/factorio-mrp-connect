@@ -31,7 +31,10 @@ function M.engine()
   return surface,entities,renders
 end
 local function element(spec,parent)
-  local e={valid=true,children={},style={},parent=parent}
+  local e=setmetatable({valid=true,children={},style={},parent=parent},{__newindex=function(t,key,value)
+    if key=='read_only' and t.type~='text-box' then error('Only callable on text-box.') end
+    rawset(t,key,value)
+  end})
   for k,v in pairs(spec or {}) do e[k]=v end
   e.add=function(s)
     local child=element(s,e); e.children[#e.children+1]=child
@@ -43,7 +46,7 @@ local function element(spec,parent)
     e.valid=false;if parent and e.name then parent[e.name]=nil end
   end
   e.clear=function() for _,child in ipairs(e.children) do child.destroy() end;e.children={} end
-  e.auto_center=function() end
+  e.auto_center=false
   e.select_all=function() e.selected=true end
   e.focus=function() e.focused=true end
   return e
