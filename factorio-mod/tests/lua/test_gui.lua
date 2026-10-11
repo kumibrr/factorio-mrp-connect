@@ -1,5 +1,35 @@
 local f=require('view_fixtures')
 return {
+  machine_panel_contains_only_its_operation_and_stays_open_for_skin_selection=function()
+    local p=f.player();local gui=f.module('gui');local v=f.module('view_model').build(f.snapshot(),f.healthy());v.revision=7
+    gui.show_machine(p,v,{center_id=2,mo_id=6,op_id=14})
+    local panel=p.gui.screen.fc_machine_panel;local text=f.texts(panel)
+    assert(not p.gui.screen.fc_panel,'hover must not open the global panel')
+    assert(text:find('WO 14',1,true) and text:find(v.orders[6].reference,1,true))
+    assert(not text:find(v.orders[7].reference,1,true),'another machine order leaked into the panel')
+    assert(not f.find(panel,'fc_center_3') and not text:find('Stock evidence',1,true))
+    local chooser=f.find(panel,'fc_machine_skin');assert(chooser and chooser.elem_type=='entity')
+    v.orders[6].operations[1].running_label='Observed running 00:02 (game time)'
+    gui.update(p,v)
+    assert(panel.valid and chooser.valid and f.texts(panel):find('00:02',1,true))
+    chooser.elem_value='modded-smelter'
+    local action=gui.handle(p,{element=chooser},v)
+    assert(action.action=='skin' and action.skin=='modded-smelter' and action.machine.op_id==14)
+    gui.handle(p,{element=f.find(panel,'fc_machine_close')},v)
+    assert(not p.gui.screen.fc_machine_panel)
+  end,
+  machine_revision_refresh_keeps_scope_and_closes_when_operation_disappears=function()
+    local p=f.player();local gui=f.module('gui');local v=f.module('view_model').build(f.snapshot(),f.healthy());v.revision=7
+    gui.show_machine(p,v,{center_id=2,mo_id=6,op_id=14},'stone-furnace')
+    local chooser=f.find(p.gui.screen.fc_machine_panel,'fc_machine_skin')
+    v.revision=8;v.orders[6].operations[1].output_qty=3
+    gui.update(p,v)
+    assert(chooser.valid and chooser==f.find(p.gui.screen.fc_machine_panel,'fc_machine_skin'),'source refresh must not destroy the open skin picker')
+    assert(p.gui.screen.fc_machine_panel.tags.machine.op_id==14)
+    assert(f.find(p.gui.screen.fc_machine_panel,'fc_machine_skin').elem_value=='stone-furnace')
+    v.orders[6]=nil;v.revision=9;gui.update(p,v)
+    assert(not p.gui.screen.fc_machine_panel,'removed machine should not leave a stale panel')
+  end,
   running_timer_refresh_preserves_record_selection=function()
     local p=f.player();local gui=f.module('gui');local v=f.module('view_model').build(f.snapshot(),f.healthy());v.revision=7
     v.orders[6].operations[1].running_label='Elapsed 12 min | Expected 50 min | Remaining estimate 38 min | Observed running 00:01 (game time)'

@@ -13,7 +13,24 @@ The initial states are:
 | Inspection | Four dependency-blocked orders | Completed/cancelled operations |
 | Packing | Four dependency-blocked orders | Completed/cancelled operations |
 
-Select each station for order references, quantities and material evidence.
+Hover a station for its own work-center details. Hover a production machine for
+only its manufacturing order and work order, including quantities, dependencies,
+material evidence and timing. The panel stays open when you move the pointer
+onto it; use **Close** or Escape to dismiss it. **Odoo factory** or **Factory
+overview** opens the full overview.
+
+Use **Machine skin** in the machine panel to choose an available appearance from
+the base game or installed mods. The native selector lists compatible machine
+graphics, including assemblers, furnaces, drills, labs, power equipment and
+containers. Skins use a static first frame, scaled to fit the existing machine;
+their recipes, power requirements and behavior are not imported. Each choice is
+saved separately for that station or production work order. **Reset to default**
+restores its original appearance. Changing a skin preserves inventories, recipe,
+production ledger, timers, belt connections and collision footprint. Snapshot
+refreshes, lane reconstruction and save/reload retain the choice; removing a mod
+that supplies a chosen skin falls back to the default. Confirmed local re-pair
+clears these local choices along with the generated view.
+
 Assembly's raw center status `done` means In Progress here. Shortage Assembly
 is operation-ready and material-short simultaneously; blocked Inspection and
 Packing are waiting for predecessors. No Factorio inventory or power determines
@@ -228,6 +245,12 @@ business data. It does not measure a new commit or verify seed invariants.
 1. Confirm ten products, two BOMs, four stations, eight MOs, 22 WOs, 14 posted
    pumps and the six-motor warning. Select every station and inspect idle,
    running, dependency-blocked and material-short records.
+   Hover two different Assembly machines and verify that each panel shows only
+   its own MO/WO. Move onto the panel and open **Machine skin**; keep the selector
+   open through a source refresh. Choose a furnace and an installed-mod machine
+   appearance, then reset one to default. Check inventories and release counts
+   before/after, save/reload and verify each machine's choice. Repeat on the small
+   Packing overview station and confirm its footprint and labels stay intact.
 2. Execute the finish/start commands above. Confirm the running Assembly's
    operation output becomes 10, Inspection becomes ready, then ready Assembly
    starts. Measure each healthy committed change reaching the unpaused game

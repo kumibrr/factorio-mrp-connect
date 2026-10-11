@@ -13,6 +13,25 @@ local function setup(diamond)
   return v,owned,p
 end
 return {
+  changing_a_machine_skin_keeps_component_kits_connected=function()
+    f.engine();prototypes.entity['fc-skin-production-stone-furnace']={}
+    local v=f.module('view_model').build(f.snapshot(),f.healthy())
+    v.orders={[6]=v.orders[6]};v.orders[6].operations[1].output_qty=3
+    local owned={surface=game.create_surface()};local p=f.module('production_surface')
+    assert(#p.reconcile(v,owned,40)==0)
+    local row=owned.production[6];local first=row.machines[1];local original=first.entity
+    local input=original.get_inventory(defines.inventory.assembling_machine_input)
+    input.insert{name='fc-raw-material',count=3};input.insert{name='fc-component-kit',count=2}
+    assert(p.set_skin(owned,{center_id=2,mo_id=6,op_id=14},'fc-skin-production-stone-furnace'))
+    assert(row.nodes[14].entity==first.entity and not original.valid)
+    assert(first.materials[1].complete==first.entity,'the kit feed must target the replacement machine')
+    for _,allocation in ipairs(first.materials[1].allocations) do assert(allocation.complete==first.entity) end
+    p.update(v,owned,0)
+    input=first.entity.get_inventory(defines.inventory.assembling_machine_input)
+    assert(first.released==2 and input.get_item_count('fc-raw-material')==1)
+    assert(input.get_item_count('fc-component-kit')==0)
+    assert(first.entity.get_inventory(defines.inventory.assembling_machine_output).get_item_count('fc-workpiece')==2)
+  end,
   serial_connections_use_direct_belts_with_only_two_order_boxes=function()
     f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
     v.orders={[6]=v.orders[6]};v.orders[6].materials={}

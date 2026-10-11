@@ -1,5 +1,6 @@
 local vm=require('scripts.view_model')
 local production=require('scripts.production_surface')
+local skins=require('scripts.skins')
 local M={}
 local kinds={MACH='machining',ASSY='assembly',INSP='inspection',PACK='packing'}
 local function destroy(objects)
@@ -13,7 +14,7 @@ function M.clear(owned)
   production.clear(owned)
   for _,row in pairs(owned.stations or {}) do remove(row) end
   for _,targets in pairs(owned.links or {}) do for _,row in pairs(targets) do remove(row) end end
-  owned.stations={};owned.links={}
+  owned.stations={};owned.links={};owned.machine_skins=nil
   -- Keep the owned surface itself and all untracked contents intact.
 end
 local function ensure(owned,warnings)
@@ -56,7 +57,7 @@ function M.reconcile(view,slots,owned)
     local row=owned.stations[center_id]
     if row and not row.entity.valid then remove(row);owned.stations[center_id]=nil;row=nil end
     if not row and slot then
-      local spec={name='fc-station-'..(kinds[center.code] or 'generic'),position=slot.position,force='player'}
+      local spec={name=skins.name(owned,'station',center_id,'fc-station-'..(kinds[center.code] or 'generic')),position=slot.position,force='player'}
       if surface.can_place_entity(spec) then
         local entity=surface.create_entity(spec)
         if entity then protect(entity);row={entity=entity,renders={}};owned.stations[center_id]=row end
@@ -85,5 +86,37 @@ function M.center_for_entity(owned,entity)
   if not entity or not entity.valid then return nil end
   for center_id,row in pairs(owned.stations or {}) do if row.entity==entity then return center_id end end
   return production.center_for_entity(owned,entity)
+end
+function M.machine_for_entity(owned,entity)
+  if not entity or not entity.valid then return nil end
+  for center_id,row in pairs(owned.stations or {}) do if row.entity==entity then return {center_id=center_id} end end
+  return production.machine_for_entity(owned,entity)
+end
+function M.machine(owned,ref)
+  if ref.op_id then return production.machine(owned,ref) end
+  return owned.stations and owned.stations[ref.center_id]
+end
+function M.set_skin(view,owned,ref,skin)
+  local center=view.centers[ref.center_id]
+  if not center then return false,'This work center is no longer available.' end
+  local role=ref.op_id and 'production' or 'station'
+  local default='fc-'..role..'-'..(kinds[center.code] or 'generic')
+  local name=skin and skins.prototype(role,skin,default) or default
+  if skin and not prototypes.entity[name] then return false,'This appearance is not available from the installed mods.' end
+  local ok,err
+  if ref.op_id then ok,err=production.set_skin(owned,ref,name)
+  else
+    local row=M.machine(owned,ref)
+    if not row then return false,'This machine is no longer available.' end
+    ok,err=skins.replace(row,name,false,function(entity)
+      -- Entity-targeted renders are destroyed with their target. Reattach them
+      -- before removing the old station, preserving their handles across saves.
+      for i,render in ipairs(row.renders) do
+        if render.valid then render.target={entity=entity,offset={x=0,y=-4+(i-1)*0.7}} end
+      end
+    end)
+  end
+  if ok then skins.saved(owned,role)[ref.op_id or ref.center_id]=skin end
+  return ok,err
 end
 return M

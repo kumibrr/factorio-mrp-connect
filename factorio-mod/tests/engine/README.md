@@ -45,3 +45,15 @@ on the belt. Both loads check network entity identity and dispatch idempotence.
 Network and physical-flow probes update on the mod's six-tick cadence while
 native belts and inserters continue moving every tick. Their evidence appears
 under `network` and `production` in each load's report.
+
+The skin probe discovers base-machine appearances and an assembler supplied by
+the dependent smoke mod. It swaps a partially released machine to that skin,
+resets it, and swaps it back, retaining real input/output inventories, recipe,
+component-kit feed targets, ledger and the lane. The fixture machine's name
+contains `underground-belt` to check appearance names cannot change routing types.
+It checks station render handles survive replacement and
+the small Packing station retains its collision footprint. Both loads verify
+the saved production/station choices and entity identity. `report.json` records
+skin evidence for creation and both loads. The headless runner has no GUI player;
+Lua GUI tests simulate events, and desktop hover/selector acceptance remains in
+the demo walkthrough.

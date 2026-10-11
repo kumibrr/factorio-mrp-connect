@@ -3,12 +3,19 @@ local production=require('scripts.production')
 local router=require('scripts.production_routing')
 local layout=require('scripts.production_layout')
 local vm=require('scripts.view_model')
+local skins=require('scripts.skins')
 local M={}
 local kinds={MACH='machining',ASSY='assembly',INSP='inspection',PACK='packing'}
 local function key(x,y) return x..':'..y end
 local function id(value) return string.format('%d',value) end
+local function machine_name(name)
+  return name:find('^fc%-skin%-production%-') or (name:find('^fc%-production%-') and name~='fc-production-inserter')
+end
+local function belt_name(name)
+  return name=='transport-belt' or name=='express-underground-belt'
+end
 local function inventory(entity)
-  local kind=entity.name:find('^fc%-production%-') and defines.inventory.assembling_machine_input or defines.inventory.chest
+  local kind=machine_name(entity.name) and defines.inventory.assembling_machine_input or defines.inventory.chest
   return entity.get_inventory(kind)
 end
 local function destroy(row)
@@ -44,9 +51,9 @@ local function fingerprint(lane,view,buffers)
   return table.concat(parts,':')
 end
 local function reserve(occupied,spec)
-  local radius=spec.name:find('fc%-production%-') and spec.name~='fc-production-inserter' and 1 or 0
+  local radius=machine_name(spec.name) and 1 or 0
   for x=spec.position.x-radius,spec.position.x+radius do for y=spec.position.y-radius,spec.position.y+radius do
-    occupied[key(x,y)]={kind=spec.name:find('belt') and 'belt' or 'entity',direction=spec.direction,type=spec.type}
+    occupied[key(x,y)]={kind=belt_name(spec.name) and 'belt' or 'entity',direction=spec.direction,type=spec.type}
   end end
 end
 local function create(surface,row,spec)
@@ -116,7 +123,7 @@ local function plan_order(lane,view,owned,base_y,occupied)
       for x=p.x-6,p.x-3 do node.todo_specs[#node.todo_specs+1]=add(planned,'transport-belt',x,p.y,{direction=defines.direction.east}) end
     end
     node.input_spec=add(planned,'fc-production-inserter',p.x-2,p.y,{direction=defines.direction.west})
-    node.machine_spec=add(planned,'fc-production-'..(kinds[view.centers[op.center_id].code] or 'generic'),p.x,p.y)
+    node.machine_spec=add(planned,skins.name(owned,'production',op.id,'fc-production-'..(kinds[view.centers[op.center_id].code] or 'generic')),p.x,p.y)
     node.output_spec=add(planned,'fc-production-inserter',p.x+2,p.y,{direction=defines.direction.west})
     if not node.direct_output then node.receipt_spec=add(planned,'steel-chest',p.x+3,p.y) end
   end
@@ -241,8 +248,8 @@ function M.reconcile(view,owned,base_y)
   end
   for k,row in pairs(owned.production_buffers) do if not buffers[k] or not intact(row) then destroy(row);owned.production_buffers[k]=nil end end
   local occupied={}
-  for _,row in pairs(owned.production) do for _,e in ipairs(row.entities) do reserve(occupied,{name=e.name,position=e.position,direction=e.direction,type=e.name:find('underground') and e.belt_to_ground_type or nil}) end end
-  for _,row in pairs(owned.production_buffers) do for _,e in ipairs(row.entities) do reserve(occupied,{name=e.name,position=e.position,direction=e.direction,type=e.name:find('underground') and e.belt_to_ground_type or nil}) end end
+  for _,row in pairs(owned.production) do for _,e in ipairs(row.entities) do reserve(occupied,{name=e.name,position=e.position,direction=e.direction,type=e.name=='express-underground-belt' and e.belt_to_ground_type or nil}) end end
+  for _,row in pairs(owned.production_buffers) do for _,e in ipairs(row.entities) do reserve(occupied,{name=e.name,position=e.position,direction=e.direction,type=e.name=='express-underground-belt' and e.belt_to_ground_type or nil}) end end
   local buffer_ids={};for k in pairs(buffers) do buffer_ids[#buffer_ids+1]=k end;table.sort(buffer_ids)
   for _,k in ipairs(buffer_ids) do
     local material=buffers[k];local row=owned.production_buffers[k]
@@ -283,7 +290,7 @@ function M.reconcile(view,owned,base_y)
     if built then
       occupied=trial
       row.incomplete=false;row.nodes=nodes;row.edges=edges
-      for _,spec in ipairs(planned) do if spec.name:find('belt') then row.belts[#row.belts+1]=spec.entity end end
+      for _,spec in ipairs(planned) do if belt_name(spec.name) then row.belts[#row.belts+1]=spec.entity end end
       for _,op in ipairs(lane.operations) do
         local node=nodes[op.id];local p=node.position
         node.entity=node.machine_spec.entity;node.entity.active=false
@@ -429,5 +436,32 @@ function M.center_for_entity(owned,entity)
   for _,row in pairs(owned.production or {}) do
     for _,node in ipairs(row.machines or {}) do if node.entity==entity or node.source==entity or node.receipt==entity then return node.center_id end end
   end
+end
+function M.machine_for_entity(owned,entity)
+  for mo_id,row in pairs(owned.production or {}) do
+    for _,machine in ipairs(row.machines or {}) do
+      if machine.entity==entity then return {center_id=machine.center_id,mo_id=mo_id,op_id=machine.op_id} end
+    end
+  end
+end
+function M.machine(owned,ref)
+  local lane=owned.production and owned.production[ref.mo_id]
+  for _,machine in ipairs(lane and lane.machines or {}) do
+    if machine.op_id==ref.op_id and machine.center_id==ref.center_id then return machine,lane end
+  end
+end
+function M.set_skin(owned,ref,name)
+  local machine,lane=M.machine(owned,ref)
+  if not machine then return false,'This machine is no longer available.' end
+  local original=machine.entity
+  local ok,err=skins.replace(machine,name,true)
+  if ok then
+    for i,entity in ipairs(lane.entities) do if entity==original then lane.entities[i]=machine.entity;break end end
+    for _,feed in ipairs(machine.materials or {}) do
+      feed.complete=machine.entity
+      for _,allocation in ipairs(feed.allocations or {}) do allocation.complete=machine.entity end
+    end
+  end
+  return ok,err
 end
 return M

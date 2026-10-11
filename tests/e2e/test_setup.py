@@ -68,7 +68,7 @@ def test_package_has_expected_root_and_no_secrets(tmp_path):
     assert archive.read_bytes() == first
     with zipfile.ZipFile(archive) as package:
         assert all(name.startswith('factorio-connect_0.1.0/') for name in package.namelist())
-        expected = ['info.json', 'control.lua', 'data.lua', 'settings.lua']
+        expected = ['info.json', 'control.lua', 'data.lua', 'data-final-fixes.lua', 'settings.lua']
         assert all('factorio-connect_0.1.0/' + name in package.namelist() for name in expected)
         assert all('/tests/' not in name and '.env' not in name and 'token' not in name for name in package.namelist())
         for name in package.namelist():

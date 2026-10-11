@@ -190,6 +190,45 @@ unequal operation batches warn rather than generate a misleading route. Licensed
 desktop GUI appearance and a live Odoo-to-engine transport run for this new
 surface feature remain unexecuted; prior backend evidence below is unchanged.
 
+## Machine panels and skins — 2026-10-10
+
+`./scripts/check lua`: 67 passed, 0 failed. Tests cover machine-specific hover
+scope, pointer movement into the panel, picker click/change events, same-machine
+refresh preserving the chooser, Escape, removed operations, per-machine choices,
+lane reconstruction, missing skin mods and failed inventory-copy rollback.
+Graphics fixtures include third-party layouts and numeric/vector sprite sizes.
+The focused packaging regression passed; `./scripts/package-mod` includes the
+new `data-final-fixes.lua` discovery entry point in the runtime-only archive.
+
+`./scripts/check factorio` passed creation and two independent 12,001-tick save
+loads. Evidence: `runtime/surface-smoke-9hc84ipy/report.json`. The real engine
+discovered base skins and an appearance supplied by the dependent fixture mod,
+preserved the partial lane’s inventories, recipe and release ledger during skin
+swaps/reset, retained station label handles, and kept the Packing station’s
+original collision footprint. Both loads retained saved skin choices and entity
+identity. Existing physical production and ownership checks also passed.
+
+Independent review findings on chooser refresh, alternate graphics layouts and
+station footprints were addressed and rechecked. Skins use static first frames
+of compatible installed graphics. Native headless checks do not execute a GUI;
+desktop hover, the native selector and graphical appearance remain unexecuted.
+The walkthrough includes their acceptance steps.
+
+## Main integration — 2026-10-11
+
+Merged `origin/main` at `9e21935`, preserving the machine panel and skin work
+alongside the compact production network. Skin swaps now keep component-kit
+feeds and allocation references attached to the replacement machine, and skin
+names containing `underground` or `belt` retain machine routing footprints.
+
+`./scripts/check lua`: 92 passed, 0 failed, including kit consumption after a
+skin swap and saved-skin rebuilds. The focused packaging regression passed.
+`./scripts/check factorio` passed creation and two independent 12,001-tick save
+loads: `runtime/surface-smoke-kpqtu6sa/report.json`. Both routing and skin probes
+passed, including the mod-name regression that initially crashed the engine.
+The rebuilt package contains 24 runtime assets matching source byte-for-byte,
+with valid ZIP CRCs. Desktop GUI acceptance remains unexecuted.
+
 ## Passed
 
 | Command | Result | Elapsed wall time | Evidence |
