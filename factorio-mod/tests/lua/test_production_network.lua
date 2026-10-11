@@ -13,6 +13,64 @@ local function setup(diamond)
   return v,owned,p
 end
 return {
+  serial_connections_use_direct_belts_with_only_two_order_boxes=function()
+    f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
+    v.orders={[6]=v.orders[6]};v.orders[6].materials={}
+    local owned={surface=game.create_surface()};local p=f.module('production_surface')
+    local warnings=p.reconcile(v,owned,40);assert(#warnings==0,table.concat(warnings,'\n'))
+    local row=owned.production[6];local boxes=0
+    for _,entity in ipairs(row.entities) do if entity.name=='steel-chest' then boxes=boxes+1 end end
+    assert(boxes==2,'a three-machine serial order needs only its input and final output boxes')
+    for _,edge in ipairs(row.edges) do
+      assert(edge.direct and not edge.source and not edge.complete,'serial work must go directly between machines')
+      for _,belt in ipairs(edge.belts) do
+        assert(belt.name=='transport-belt' and belt.position.y==row.machines[1].position.y,'serial belts must be straight and visible')
+      end
+    end
+    assert(#row.belts<=26,'serial transport must not take detours through dispatch boxes')
+  end,
+  component_receipts_stay_at_the_producer_without_a_return_belt=function()
+    f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
+    v.orders={[1]=v.orders[1],[6]=v.orders[6]}
+    local owned={surface=game.create_surface()};local p=f.module('production_surface')
+    local warnings=p.reconcile(v,owned,40);assert(#warnings==0,table.concat(warnings,'\n'))
+    local producer=owned.production[1].machines[1];local supply=producer.outgoing[1]
+    assert(supply.complete==producer.receipt,'supplier completion belongs in its existing output box')
+    assert(#supply.belts==0,'a shared stock display must not add a long return route')
+  end,
+  component_inputs_combine_into_one_short_native_feed=function()
+    f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
+    local owned={surface=game.create_surface()};local p=f.module('production_surface')
+    local warnings=p.reconcile(v,owned,40);assert(#warnings==0,table.concat(warnings,'\n'))
+    local row=owned.production[6];local first=row.machines[1]
+    assert(#row.material_edges==8,'individual component allocations must remain inspectable')
+    assert(#first.materials==1,'component inputs must share one kit feed into assembly')
+    local feed=first.materials[1]
+    assert(feed.complete==first.entity,'components and workpieces must enter the same machine')
+    assert(#feed.material_ids==7 and #feed.belts<=8,'seven assembly inputs need one short route')
+    local belts=0
+    for _,order in pairs(owned.production) do belts=belts+#order.belts end
+    assert(belts<500,'the seeded factory must not recreate the factory-wide belt web')
+  end,
+  a_component_kit_waits_for_every_allocation_and_both_machine_inputs=function()
+    f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
+    for k in pairs(v.orders) do if k~=6 then v.orders[k]=nil end end
+    local owned={surface=game.create_surface()};local p=f.module('production_surface')
+    local warnings=p.reconcile(v,owned,40);assert(#warnings==0,table.concat(warnings,'\n'))
+    local row=owned.production[6];local first=row.machines[1]
+    v.orders[6].materials[1].reserved_qty=2
+    p.update(v,owned,0)
+    local feed=first.materials[1]
+    assert(feed.dispatched==2,'the least available component limits complete kits')
+    local input=first.entity.get_inventory(defines.inventory.assembling_machine_input)
+    input.insert{name='fc-raw-material',count=3}
+    v.orders[6].operations[1].output_qty=3;p.update(v,owned,6)
+    assert(first.released==0,'workpieces alone cannot bypass the component kit')
+    input.insert{name='fc-component-kit',count=2};p.update(v,owned,12)
+    assert(first.released==2 and input.get_item_count('fc-raw-material')==1)
+    assert(input.get_item_count('fc-component-kit')==0,'one kit must be consumed once per workpiece')
+    p.update(v,owned,18);assert(first.released==2 and feed.dispatched==2)
+  end,
   downward_material_allocation_corrections_replace_only_the_consumer=function()
     f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
     for k in pairs(v.orders) do if k~=1 and k~=6 then v.orders[k]=nil end end
@@ -25,7 +83,7 @@ return {
     assert(not old.source.valid and owned.production[1].source==other and other.valid)
     assert(owned.production[6].material_edges[1].dispatched==3)
   end,
-  reassigned_operations_get_a_free_slot_in_their_new_center=function()
+  reassigned_operations_preserve_neighboring_order_cells=function()
     f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
     for k in pairs(v.orders) do if k~=1 and k~=2 then v.orders[k]=nil end end
     for _,order in pairs(v.orders) do order.materials={} end
@@ -35,6 +93,7 @@ return {
     local warnings=p.reconcile(v,owned,40);assert(#warnings==0,table.concat(warnings,'\n'))
     local moved=owned.production[2].machines[1].entity
     assert(moved.position.x==existing.position.x and moved.position.y~=existing.position.y)
+    assert(moved.name=='fc-production-machining' and p.center_for_entity(owned,moved)==1)
     assert(owned.production[1].machines[1].entity==existing and existing.valid)
   end,
   adding_and_removing_a_consumer_reroutes_its_component_producer=function()
@@ -49,13 +108,14 @@ return {
     v.orders[6]=nil;p.reconcile(v,owned,40)
     assert(#owned.production[1].machines[1].outgoing==0,'removed consumers must lose their supply route')
   end,
-  shared_work_center_areas_have_staggered_connected_routes=function()
+  simple_order_flows_keep_short_local_connections=function()
     f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
     local owned={surface=game.create_surface()};local p=f.module('production_surface')
     local warnings=p.reconcile(v,owned,40);assert(#warnings==0,table.concat(warnings,'\n'))
     local a,b=owned.production[5],owned.production[6]
-    assert(a.machines[1].entity.position.x==b.machines[1].entity.position.x,'assembly orders must share an area')
-    assert(a.machines[1].entity.position.y~=a.machines[2].entity.position.y,'areas must not form straight order lanes')
+    assert(a.machines[1].entity.position.x==b.machines[1].entity.position.x,'orders must use consistent left-to-right stages')
+    assert(a.machines[1].entity.position.y==a.machines[2].entity.position.y,'an unbranched order should stay on one row')
+    assert(a.machines[1].entity.position.y~=b.machines[1].entity.position.y,'order flows must retain their own cells')
     assert(owned.production_buffers and owned.production_buffers['9:1'],'manufactured components need a shared buffer')
     assert(#owned.production[6].material_edges==8)
     local component=owned.production[1].machines[1]
@@ -85,9 +145,9 @@ return {
     p.reconcile(v,owned,40);p.update(v,owned,0)
     local row=owned.production[6];local edge=row.material_edges[1]
     assert(edge and edge.dispatched==10)
-    edge.source.get_inventory(defines.inventory.chest).remove{name='fc-raw-material',count=4}
+    edge.source.get_inventory(defines.inventory.chest).remove{name='fc-component-kit',count=4}
     p.reconcile(v,owned,40);p.update(v,owned,60)
-    assert(edge.source.get_inventory(defines.inventory.chest).get_item_count('fc-raw-material')==6)
+    assert(edge.source.get_inventory(defines.inventory.chest).get_item_count('fc-component-kit')==6)
     assert(edge.dispatched==10)
     local first=row.machines[1]
     first.entity.get_inventory(defines.inventory.assembling_machine_input).insert{name='fc-raw-material',count=2}

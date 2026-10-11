@@ -58,9 +58,24 @@ function M.tick(tick)
     assert(count(row.nodes[2004].receipt,'fc-complete')==4,'diamond completion did not reach the output box')
     local supply=storage.supply_owned
     local producer=supply.production[1].machines[1]
-    assert(count(producer.outgoing[1].complete,'fc-complete')==60,'component output did not arrive in its shared product area')
+    assert(producer.outgoing[1].complete==producer.receipt and #producer.outgoing[1].belts==0,'component supply added a long return route')
+    assert(count(producer.receipt,'fc-complete')==60,'component output did not arrive in its local completion box')
     assert(count(supply.production_buffers['9:1'].stock,'fc-raw-material')==46,'operation receipts changed posted stock')
-    assert(count(supply.production[6].material_edges[1].complete,'fc-raw-material')==10,'allocated components did not feed assembly')
+    local assembly=supply.production[6].machines[1]
+    local feed=assembly.materials[1]
+    local kit_input=assembly.entity.get_inventory(defines.inventory.assembling_machine_input).get_item_count('fc-component-kit')
+    assert(kit_input>0,'allocated component kits did not enter assembly: '..helpers.table_to_json{
+      source=count(feed.source,'fc-component-kit'),active=feed.finish_inserter.active,
+      pickup=feed.finish_inserter.pickup_position,drop=feed.finish_inserter.drop_position,
+      hand=feed.finish_inserter.held_stack.valid_for_read and feed.finish_inserter.held_stack.name or 'empty',
+      recipe=assembly.entity.get_recipe().name})
+    assert(assembly.entity.get_inventory(defines.inventory.assembling_machine_input).get_item_count('fc-raw-material')>0,'the workpiece feed did not converge on the same assembly machine')
+    local kits=count(feed.source,'fc-component-kit')+kit_input
+    for _,belt in ipairs(feed.belts) do for line=1,2 do kits=kits+belt.get_transport_line(line).get_item_count('fc-component-kit') end end
+    for _,inserter in ipairs({feed.feed,feed.finish_inserter}) do
+      if inserter.held_stack.valid_for_read and inserter.held_stack.name=='fc-component-kit' then kits=kits+inserter.held_stack.count end
+    end
+    assert(kits==10,'component-kit dispatch duplicated or lost the allocated quantity')
     assert(supply.production[6].machines[1].released==0,'component arrival invented assembly output')
     assert(storage.network_pair[1].neighbours==storage.network_pair[2],'underground pairing changed during transport')
     local identity=row.nodes[2001].entity.unit_number
@@ -69,7 +84,8 @@ function M.tick(tick)
     assert(storage.network_owned.production[6].nodes[2001].entity.unit_number==identity)
     storage.network_finished=true
     log('FC_NETWORK_SMOKE '..helpers.table_to_json{native_diamond=true,join_waits_for_all=true,complete_markers=4,
-      shared_component_receipts=60,allocated_material_receipts=10,posted_stock_unchanged=46,underground_pairing=true,save_load=true})
+      local_component_receipts=60,supply_return_routes_removed=true,allocated_material_receipts=kits,component_kits_in_machine=kit_input,
+      compact_order_flow=true,posted_stock_unchanged=46,underground_pairing=true,save_load=true})
   end
 end
 return M

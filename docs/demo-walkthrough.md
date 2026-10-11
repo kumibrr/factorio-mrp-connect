@@ -20,31 +20,37 @@ Packing are waiting for predecessors. No Factorio inventory or power determines
 these states. Order origin markers identify scenarios regardless of generated
 MO sequence numbers.
 
-The physical network below the overview groups operations into shared
-Machining, Assembly, Inspection and Packing areas. Use **Jump to production
-area** to visit work at the selected center; running work takes priority. Order
-machines retain their references while belts weave between the areas. Native
-underground crossings keep dedicated routes separate.
+Production below the overview uses compact left-to-right order flows. A normal
+Assembly → Inspection → Packing sequence stays on one row. Parallel dependency
+steps occupy neighboring rows; their routes split locally and converge at one
+consuming machine. Use **Jump to production area** to visit work at the selected
+center; running work takes priority. Each order retains its machine identities.
+Normal stages connect directly by straight belts, with one initial input box
+and one final output box. Extra receipt boxes appear only at actual forks and
+joins; the work-center summaries no longer draw a second belt network.
 
-Component production flows into a shared product area. For example, completed
-impeller receipts arrive beside the impeller stock buffer, whose allocation
-branches feed the Assembly operations of several pump orders. Housing, motors,
-shafts, bearings, seals and fasteners also converge on Assembly, while cartons
-feed Packing. The assignments come from source BOM operations. Each operation
-waits for all its allocated component receipts and predecessor receipts before
-releasing its Odoo-reported output. A fork sends a completion receipt down each
-successor path; a merge waits for every predecessor.
+Component completion stays in the producer's output box and is associated with
+its product area without a long return belt. Odoo allocations for
+impellers, housing, motors, shafts, bearings, seals and fasteners combine into
+one **Components × 7** feed at Assembly; cartons form a separate kit feed at
+Packing. A kit is prepared only when every constituent allocation is available.
+Its short belt feeds the top of the same machine that receives workpieces from
+the left. Both inputs must physically arrive before Odoo-reported output can
+release work. The assignments come from source BOM operations. A dependency fork
+sends a completion receipt down each successor path; a merge waits for every
+predecessor.
 
 Raw workpieces enter TODO belts through inserters. Ready/blocked operations
 leave them there; running operations admit them to their machines. Full native
 belts stop their feed inserters, and the shortage order holds its raw feed until
 its material warning clears. Machines release markers only up to Odoo-recorded
 output, or when Odoo reports that operation done. Items then pass through output
-inserters, routing buffers and real belts to their destinations.
+inserters and direct belts to the next machine. Forks and joins use local receipt
+buffers to retain separate dependency evidence.
 
-Markers represent visual workpieces, component allocations, or dependency
+Markers represent visual workpieces, complete component kits, or dependency
 receipts, rather than posted business inventory. Labels show each order's scaled
-quantity per workpiece and each component's own unit per allocation marker.
+quantity per workpiece. Order details show every component quantity and its own unit.
 Batches use at most 200 workpiece markers. Branch receipts represent the same
 workpiece's dependency completion and do not create extra product. The backorder
 represents only its six outstanding units. Shared stock displays follow Odoo
@@ -53,9 +59,10 @@ does not claim supplier-order provenance absent from the snapshot. Cancelled
 MOs have no physical network; cycles, missing dependencies, ambiguous component
 assignments and unequal batches retain source details with a routing warning.
 
-Machine labels and order details retain recorded elapsed/expected duration and
-remaining estimates. **Observed running** counts unpaused game time while sync
-is healthy. Existing saves replace the previous straight-lane layout on the
+World labels show the operation, state and released-marker count. Order details
+retain recorded elapsed/expected duration and remaining estimates. **Observed
+running** counts unpaused game time while sync is healthy. Existing saves replace
+the previous routed web on the
 next reconciliation. Ordinary snapshots and reloads preserve inventories,
 entities and counters. Changed quantities/routing/centers, new producer
 connections, and downward output/allocation corrections rebuild affected orders;

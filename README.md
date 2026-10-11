@@ -3,10 +3,12 @@
 # factorio-connect
 
 View an Odoo MRP factory in Factorio: work centers, work orders, recorded
-production, BOM dependencies and material availability. A connected production network
-groups operations by work center, routes component supply through shared product
-buffers, and carries visual workpieces through branching and merging native belt
-paths, with backpressure and running timers. Odoo supplies the
+production, BOM dependencies and material availability. Compact production flows
+carry workpieces left to right, with short local branches and merges where needed.
+Normal stages connect directly by belts with only initial input and final output
+boxes; extra receipt boxes are reserved for real forks and joins.
+One component-kit feed combines each operation's allocated inputs into the same
+machine, with native backpressure and running timers. Odoo supplies the
 production truth; Factorio displays it and never writes business records.
 
 The local demo targets Linux x86_64, local rootful Docker Engine, Compose >=2.24.0,

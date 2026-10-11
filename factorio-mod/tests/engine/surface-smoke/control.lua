@@ -31,12 +31,27 @@ local function check()
     for _,entity in ipairs(row.entities) do assert(entity.valid and not entity.minable and not entity.destructible and not entity.active);belts=belts+1 end
     for _,object in ipairs(row.renders) do assert(object.valid);renders=renders+1 end
   end end
-  assert(stations==4 and belts>0 and renders==27)
+  assert(stations==4 and belts==0 and renders==24,'work-center summaries must not duplicate the production belts')
+  local production_belts,component_feeds,production_boxes=0,0,0
+  for _,row in pairs(owned.production) do
+    production_belts=production_belts+#row.belts
+    component_feeds=component_feeds+#row.material_feeds
+    for _,entity in ipairs(row.entities) do if entity.name=='steel-chest' then production_boxes=production_boxes+1 end end
+  end
+  assert(production_belts<300 and production_boxes<=27,'direct flows recreated intermediate boxes or belt detours')
+  local flow=owned.production[6].machines
+  assert(flow[1].entity.position.y==flow[2].entity.position.y and flow[2].entity.position.y==flow[3].entity.position.y)
+  assert(flow[2].entity.position.x-flow[1].entity.position.x==16 and flow[3].entity.position.x-flow[2].entity.position.x==16)
+  local serial=storage.probe_owned.production[6];local serial_boxes=0
+  for _,entity in ipairs(serial.entities) do if entity.name=='steel-chest' then serial_boxes=serial_boxes+1 end end
+  assert(serial_boxes==2 and #serial.belts==26,'serial transport must use only input/output boxes and straight belts')
   assert(storage.smoke_unrelated.valid)
   return {factorio_version=script.active_mods.base,stations=stations,belts=belts,renders=renders,
     assembly_running=view.centers[2].running_count,assembly_ready=view.centers[2].ready_count,
     inspection_waiting=view.centers[3].waiting_count,posted_pump_stock=view.stock[10][1].on_hand_qty,
     save_load=loaded,gui_executed=false,wire_json=storage.smoke_wire,
+    production_belts=production_belts,production_boxes=production_boxes,component_feeds=component_feeds,compact_serial_flow=true,
+    direct_serial_boxes=serial_boxes,decorative_routes_removed=true,
     safe_integer_record_url=storage.smoke_safe_url,safe_integer_scope_valid=true}
 end
 script.on_init(function()

@@ -90,7 +90,7 @@ function M.show(player,view,center_id)
   label(scroll,'● Green — running orders',vm.palette.running);label(scroll,'● Blue — operation ready',vm.palette.ready)
   label(scroll,'● Amber — dependency or MO material attention',vm.palette.attention);label(scroll,'● Gray — idle / terminal history',vm.palette.idle)
   label(scroll,'Production routes move visual workpieces: raw-material box → TODO belt → machines → production-complete box. Full belts stop inserters; ready/blocked work waits on its belt. Machines release only Odoo-reported output.',vm.palette.idle)
-  label(scroll,'Shared work-center areas connect order operations. Branches carry dependency receipts; merges wait for every predecessor. Shared product buffers feed Odoo-allocated material markers, scaled per workpiece. Operation-complete receipts and posted stock remain separate.',vm.palette.idle)
+  label(scroll,'Compact order flows run left to right. Branches split dependency receipts; merges wait for every predecessor. One component-kit feed combines all required Odoo allocations and enters the same machine as the workpiece. Operation-complete receipts and posted stock remain separate.',vm.palette.idle)
   label(scroll,'Elapsed and expected time come from Odoo. Remaining time is an estimate. Observed running uses unpaused game time while synchronization is healthy.',vm.palette.idle)
   return panel
 end
