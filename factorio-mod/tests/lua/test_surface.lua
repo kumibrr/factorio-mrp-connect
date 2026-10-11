@@ -39,9 +39,12 @@ return {
       return true
     end
     local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy());local slots=f.module('layout').reconcile(s.work_centers,{})
-    local owned={};local m=f.module('surface');assert(#m.reconcile(v,slots,owned)==1)
+    local owned={};local m=f.module('surface');local warnings=m.reconcile(v,slots,owned)
+    -- Shared routing can also hold another order while this area is obstructed.
+    assert(#warnings>=1,table.concat(warnings,'\n'))
     assert(owned.production[1].incomplete and #owned.production[1].entities==0 and obstacle.valid)
-    obstacle.destroy();assert(#m.reconcile(v,slots,owned)==0 and owned.production[1].source.valid)
+    obstacle.destroy();warnings=m.reconcile(v,slots,owned)
+    assert(#warnings==0 and owned.production[1].source.valid,table.concat(warnings,'\n'))
   end,
   source_output_correction_replaces_only_the_affected_lane=function()
     f.engine();local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy())
@@ -52,16 +55,15 @@ return {
     assert(not lane.source.valid and owned.production[6].machines[1].released==0)
     assert(owned.production[5].source==other and other.valid)
   end,
-  workflow_obstruction_stays_visible_until_resolved=function()
-    local surface,entities=f.engine();local obstacle=surface.create_entity{name='steel-chest',position={x=12,y=10}}
-    surface.can_place_entity=function(spec)
-      for _,e in ipairs(entities) do if e.valid and e.position.x==spec.position.x and e.position.y==spec.position.y then return false end end
-      return true
-    end
+  decorative_workflow_routes_are_removed_without_touching_unrelated_entities=function()
+    local surface=f.engine();local obstacle=surface.create_entity{name='steel-chest',position={x=12,y=10}}
+    local old_belt=surface.create_entity{name='transport-belt',position={x=13,y=10}}
+    local label=rendering.draw_text{text='old route'}
     local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy());local slots=f.module('layout').reconcile(s.work_centers,{})
-    local owned={};local m=f.module('surface');assert(#m.reconcile(v,slots,owned)>0)
-    assert(#m.reconcile(v,slots,owned)>0 and obstacle.valid)
-    obstacle.destroy();assert(#m.reconcile(v,slots,owned)==0)
+    local owned={surface=surface,links={[1]={[2]={entities={old_belt},renders={label}}}}};local m=f.module('surface')
+    assert(#m.reconcile(v,slots,owned)==0)
+    assert(not old_belt.valid and not label.valid and obstacle.valid,'remove only the owned decorative network')
+    assert(next(owned.links)==nil,'work-center summaries must not duplicate production with another belt web')
   end,
   seeded_workflow_belts_do_not_obstruct_each_other=function()
     local surface,entities=f.engine();surface.can_place_entity=function(spec)

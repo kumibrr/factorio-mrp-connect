@@ -61,7 +61,113 @@ timeout and heartbeat
 recovery decisions to the unchanged production Lua receiver. It is a test
 socket adapter, not a Factorio engine UDP dispatcher or GUI client.
 
-## Physical production flow — 2026-10-10
+## Direct production belts — 2026-10-11
+
+Following feedback about belt routes and extra boxes, one-to-one operation
+connections now use direct belts between native machine inserters. A three-stage
+order without component materials has exactly two boxes and 26 belt tiles.
+Serial stages are 16 tiles apart. Only real forks and joins retain local receipt
+boxes. Component completion stays in the producer's existing output box, with no
+long return route to a stock display. The duplicate, inactive work-center belt
+network is removed; migration destroys only its owned entities.
+
+`./scripts/check lua`: 83 passed, 0 failed. New regressions first failed on
+intermediate serial boxes, return-route receipt boxes, and retained decorative
+belts, then passed with the simplification. Native Factorio 2.0.77 creation and
+both 12,001-tick loads pass: `runtime/surface-smoke-xx08xf1b/report.json`.
+The seeded view has 251 production belts, 27 production boxes, 13 kit feeds,
+and zero decorative belts, compared with the preceding 390 production and 102
+decorative belts. Eight posted-stock display boxes remain separate.
+
+Both loads preserve the native four-marker diamond, waiting for every join
+predecessor, 60 local component-completion receipts, all ten allocated kits,
+and posted stock 46. Existing native backpressure, ready/shortage holds,
+three-marker partial output, 80 final markers, persisted identity and repeated
+snapshot behavior pass. Independent review found no actionable Critical or
+Important findings, including mixed direct/branched nodes, source authority,
+receipt aliases and migration cleanup. Desktop appearance and live
+Odoo-to-engine transport remain unexecuted.
+
+Packaging and check-harness tests pass all nine cases. The updated installable
+archive contains 21 runtime files matching source byte-for-byte, with valid ZIP
+CRCs. SHA-256:
+`0c3d7859ce846841604b7f5438ab211cdf3c129151e0006c5d03496cbca76e36`.
+
+## Simple production flows — 2026-10-10 (preceding compact implementation)
+
+Compact left-to-right order cells replace the factory-wide routing web. An
+operation combines every required component allocation into one kit feed, whose
+budget is the minimum of its constituent budgets. Workpieces enter from the left;
+kits enter the same machine from above. Actual dependency forks use adjacent
+rows and merge into one consuming operation. Individual allocation ledgers,
+unit quantities and source details remain available. World labels now show
+operation/state and released-marker counts; detailed timing remains in the GUI.
+
+`./scripts/check lua`: 81 passed, 0 failed. Native Factorio 2.0.77 creation and
+both 12,001-tick save loads pass: `runtime/surface-smoke-dkg4c80a/report.json`.
+The seeded production uses 390 belts and 13 component-kit feeds. Normal serial
+operations stay on one row with 24-tile spacing. Both runs preserve the four-item
+diamond's branch/join gates, deliver 60 component-completion receipts, and conserve
+all ten allocated kit markers across source, belts, inserter hands and assembler
+inventory. Two kits and workpieces physically enter the same assembler; its native
+ingredient-buffer limit leaves the remaining kits waiting on the short feed.
+Posted stock remains 46. Existing backpressure, ready/shortage holds, exactly three
+partial-output markers, all 80 final markers and persisted identity also pass.
+
+The strengthened operation-reassignment network check passes all eight focused
+cases. Packaging and check-harness checks pass all nine cases. Independent review
+found no actionable findings. The user confirmed per-order machines combining
+component inputs with local splits and merges.
+
+The regenerated `dist/factorio-connect_0.1.0.zip` contains 21 runtime files
+matching source byte-for-byte; all ZIP CRCs validate. SHA-256:
+`7a9a9599ac3885627e521ca62d8bbea1833e10d1f376f3b6be19fcc4e2473870`.
+
+The first native kit test exposed an unsupported diagonal inserter drop: its
+held kit could not reach the assembler. The final layout uses a straight input
+above the machine, and actual engine transport verifies that fix. Wide splits
+reserve enough cell height to keep their ports clear of neighboring orders.
+Licensed desktop appearance and live Odoo-to-engine transport remain unexecuted.
+
+## Connected production network — 2026-10-10 (preceding routed implementation)
+
+The connected network passes native prototype creation and two independent
+12,001-tick save loads: `runtime/surface-smoke-szbv9b_d/report.json`.
+Each load verifies a four-operation diamond: both branches receive their own
+completion receipts, the join waits for both predecessors, and exactly four
+markers reach the final box. Component production delivers 60 completion
+receipts to its shared product area; 10 scaled material-allocation receipts
+reach assembly while authoritative posted stock remains 46. Existing underground
+pairs retain their connections when crossing routes are added. Native probes
+use the production six-tick update cadence.
+
+The original transport checks also pass: backpressure, ready TODO work,
+shortage holding, exactly three partial-output markers, all 80 final markers,
+and persisted entity identity and release ledgers. `./scripts/check lua`
+passes all 76 cases after the routing recovery fix. Focused packaging and
+check-harness tests pass all nine cases. Pure Lua coverage includes graph
+validation, material assignment and units, bounded dispatch, allocation
+corrections, consumer addition/removal, work-center reassignment and routing.
+
+This is synthetic snapshot acceptance in Factorio 2.0.77 headless. Licensed
+desktop appearance and live Odoo-to-engine transport remain unexecuted.
+The snapshot does not identify a specific supplying manufacturing order;
+component output connects to a shared product/location area only when its
+destination is unambiguous. Invalid material assignments exclude the affected
+physical order instead of bypassing its material gate.
+
+The regenerated `dist/factorio-connect_0.1.0.zip` contains 20 runtime files
+matching the working tree byte-for-byte; all ZIP CRCs validate. SHA-256:
+`a1e283a0012cfb200d3b0819d9806677df709c9f7a1a097a491f4d9b946c4ee5`.
+
+An obstruction-recovery regression initially exposed a nearest-exit-only
+underground search: an exit could be clear but unable to take its required next
+step, while a farther legal exit was never tried. The router now searches every
+legal exit, ignores stale heap entries and caches fixed tile clearance. A focused
+regression verifies the shorter crossing, and removal of an obstacle rebuilds
+all held orders without duplicate transport or unrelated-entity removal.
+
+## Physical production flow — 2026-10-10 (preceding linear implementation)
 
 `./scripts/check lua`: 59 passed, 0 failed. Focused bridge packaging/check-harness
 checks: 9 passed. `./scripts/package-mod` generated the runtime-only archive;

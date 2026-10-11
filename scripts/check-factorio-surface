@@ -50,9 +50,12 @@ def main():
         production = [json.loads(line.split('FC_PRODUCTION_SMOKE ', 1)[1]) for line in output.splitlines() if 'FC_PRODUCTION_SMOKE ' in line]
         if label != 'create' and not production:
             raise SystemExit(f'Missing native production transport evidence during {label}; artifacts: {artifacts}')
-        reports.append({'run': label, **found[-1], 'production': production[-1] if production else None})
+        network = [json.loads(line.split('FC_NETWORK_SMOKE ', 1)[1]) for line in output.splitlines() if 'FC_NETWORK_SMOKE ' in line]
+        if label != 'create' and not network:
+            raise SystemExit(f'Missing native network transport evidence during {label}; artifacts: {artifacts}')
+        reports.append({'run': label, **found[-1], 'production': production[-1] if production else None, 'network': network[-1] if network else None})
     (artifacts / 'report.json').write_text(json.dumps(reports, indent=2) + '\n')
-    print('Factorio 2.0.77: owned displays, native production transport, TODO/backpressure, shortage holds, partial output, completion boxes and persisted partial ledgers passed across two save loads; GUI not executed.')
+    print('Factorio 2.0.77: owned displays, native production branches/joins, shared component supply, isolated crossings, backpressure, partial output and persisted ledgers passed across two save loads; GUI not executed.')
     print(f'Artifacts: {artifacts}')
 
 

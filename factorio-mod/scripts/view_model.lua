@@ -73,9 +73,10 @@ local function sync(snapshot,status)
     freshness_label=freshness,stale=stale,source_failed=failed}
 end
 function M.build(snapshot,status)
-  local v={centers={},center_ids={},orders={},stock={},links={},warnings={},sync=sync(snapshot,status),palette=M.palette}
+  local v={centers={},center_ids={},orders={},stock={},products={},units={},boms={},links={},warnings={},sync=sync(snapshot,status),palette=M.palette}
   if not snapshot then return v end
   local products,units,mos,wos=index(snapshot.products),index(snapshot.units),index(snapshot.manufacturing_orders),index(snapshot.work_orders)
+  v.products=products;v.units=units;v.boms=snapshot.boms
   local function unit(key) return units[key] and M.plain(units[key].name) or 'Unknown unit' end
   local function product(key) return products[key] and M.plain(products[key].name) or 'Unknown product' end
   local function q(value,key) return M.number(value)..(value==nil and '' or ' '..unit(key)) end
