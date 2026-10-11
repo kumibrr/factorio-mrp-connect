@@ -13,12 +13,10 @@ function M.engine()
   local entities,renders={},{}
   local surface={name='odoo-factory',valid=true}
   surface.create_entity=function(spec)
-    for _,entity in ipairs(entities) do
-      if entity.valid and entity.position.x==spec.position.x and entity.position.y==spec.position.y then return nil end
-    end
     local e={name=spec.name,position=spec.position,direction=spec.direction,belt_to_ground_type=spec.type,valid=true,surface=surface,unit_number=#entities+1}
     local inventories={}
     e.set_recipe=function(recipe) e.recipe=recipe end
+    e.get_recipe=function() return e.recipe and {name=e.recipe},{name='normal'} end
     e.get_inventory=function(kind)
       if not inventories[kind] then
         local items={};local inventory={}
@@ -28,6 +26,10 @@ function M.engine()
           local n=math.min(items[stack.name] or 0,stack.count);items[stack.name]=(items[stack.name] or 0)-n;return n
         end
         inventory.is_empty=function() for _,n in pairs(items) do if n>0 then return false end end;return true end
+        inventory.get_contents=function()
+          local out={};for name,count in pairs(items) do if count>0 then out[#out+1]={name=name,count=count,quality='normal'} end end
+          return out
+        end
         inventories[kind]=inventory
       end
       return inventories[kind]
@@ -35,8 +37,14 @@ function M.engine()
     e.destroy=function() e.valid=false end
     entities[#entities+1]=e; return e
   end
-  surface.can_place_entity=function() return true end
+  surface.can_place_entity=function(spec)
+    for _,entity in ipairs(entities) do
+      if entity.valid and entity.position.x==spec.position.x and entity.position.y==spec.position.y then return false end
+    end
+    return true
+  end
   _G.game={surfaces={},create_surface=function() game.surfaces['odoo-factory']=surface;return surface end}
+  _G.prototypes={entity={}}
   _G.rendering={}
   for _,method in ipairs({'draw_text','draw_line'}) do
     rendering[method]=function(spec)

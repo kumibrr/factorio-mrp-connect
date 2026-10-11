@@ -7,6 +7,7 @@ local view_model=require('scripts.view_model')
 local layout=require('scripts.layout')
 local surface=require('scripts.surface')
 local gui=require('scripts.gui')
+local skins=require('scripts.skins')
 local connection,view,rendered_revision
 local connection_reason='startup'
 local function owned()
@@ -27,7 +28,7 @@ local function refresh(reconcile)
   for _,warning in ipairs(registry.warnings or {}) do view.warnings[#view.warnings+1]=warning end
   view.surface_available=registry.surface~=nil and registry.surface.valid
   surface.update(view,registry,game.tick)
-  for _,player in pairs(game.players) do gui.ensure_button(player);gui.update(player,view) end
+  for _,player in pairs(game.players) do gui.ensure_button(player);gui.update(player,view,registry) end
 end
 local function supported()
   local base=script.active_mods.base
@@ -79,17 +80,35 @@ script.on_event(defines.events.on_player_created,function(event)
   local player=game.get_player(event.player_index)
   if player then gui.ensure_button(player) end
 end)
-script.on_event(defines.events.on_selected_entity_changed,function(event)
+script.on_event('fc-open-machine',function(event)
+  if event.in_gui then return end
   local player=game.get_player(event.player_index)
   if not player then return end
-  local center_id=surface.center_for_entity(owned(),player.selected)
-  if center_id then if not view then refresh(true) end;gui.show(player,view,center_id) end
+  local machine=surface.machine_for_entity(owned(),player.selected)
+  if machine then
+    if not view then refresh(true) end
+    local skin=skins.saved(owned(),machine.op_id and 'production' or 'station')[machine.op_id or machine.center_id]
+    gui.show_machine(player,view,machine,skin)
+  end
 end)
-script.on_event(defines.events.on_gui_click,function(event)
+local function handle_gui(event)
   local player=game.get_player(event.player_index)
   if not player then return end
   if not view then refresh(true) end
-  if gui.handle(player,event,view)=='reset' then
+  -- A click opens the native picker; only its change event applies a skin.
+  if event.element and event.element.name=='fc_machine_skin' and event.name~=defines.events.on_gui_elem_changed then return end
+  local action=gui.handle(player,event,view)
+  if type(action)=='table' and action.action=='skin' then
+    local ok,err=surface.set_skin(view,owned(),action.machine,action.skin)
+    if ok then gui.show_machine(player,view,action.machine,action.skin)
+    else
+      local panel=player.gui.screen.fc_machine_panel
+      if panel then
+        panel.fc_machine_error.caption=err
+        panel.fc_machine_appearance.fc_machine_skin.elem_value=skins.saved(owned(),action.machine.op_id and 'production' or 'station')[action.machine.op_id or action.machine.center_id]
+      end
+    end
+  elseif action=='reset' then
     state.reset_binding()
     surface.clear(owned());owned().warnings={}
     state.get().entity_slots={}
@@ -98,4 +117,11 @@ script.on_event(defines.events.on_gui_click,function(event)
     refresh(false)
     gui.show(player,view,nil)
   end
+end
+script.on_event(defines.events.on_gui_click,handle_gui)
+script.on_event(defines.events.on_gui_elem_changed,handle_gui)
+script.on_event(defines.events.on_gui_closed,function(event)
+  local player=game.get_player(event.player_index)
+  local panel=player and player.gui.screen.fc_machine_panel
+  if panel and event.element==panel then panel.destroy() end
 end)

@@ -1,5 +1,7 @@
 local vm=require('scripts.view_model')
 local production=require('scripts.production')
+local skins=require('scripts.skins')
+local surface=require('scripts.surface')
 local M={}
 local function label(parent,value,color,name)
   local e=parent.add{type='label',caption=value,name=name}
@@ -52,7 +54,95 @@ local function order_detail(parent,row,history)
   local field=frame.add{type='text-box',name='fc_record_'..string.format('%d',op.id),text=order.record_url,tags={fc_record=true}}
   field.read_only=true;field.word_wrap=false;field.style.width=800;field.style.height=36
 end
+local function machine_order(view,ref)
+  local order=ref.mo_id and view.orders[ref.mo_id]
+  for _,op in ipairs(order and order.operations or {}) do
+    if op.id==ref.op_id and op.center_id==ref.center_id then return {order=order,operation=op} end
+  end
+end
+local function machine_label(parent,value,color,name)
+  local element=label(parent,value,color,name);element.style.maximal_width=580
+  return element
+end
+local function machine_sync(view)
+  return 'Synchronization: '..view.sync.label..' | '..view.sync.transport_label..' | Source age '..view.sync.source_age_label..' s\n'
+    ..'Source read '..view.sync.source_read_at..(view.sync.error~='Unknown' and (' | '..view.sync.error) or '')
+end
+function M.show_machine(player,view,ref,skin)
+  local previous=player.gui.screen.fc_machine_panel
+  local location=previous and previous.valid and previous.location or nil
+  local center=view.centers[ref.center_id];local detail=machine_order(view,ref)
+  if not center or (ref.op_id and not detail) then if previous then previous.destroy() end;return end
+  if player.gui.screen.fc_panel then player.gui.screen.fc_panel.destroy() end
+  local old_ref=previous and previous.valid and previous.tags.machine
+  local reuse=old_ref and old_ref.center_id==ref.center_id and old_ref.mo_id==ref.mo_id and old_ref.op_id==ref.op_id
+  local panel=previous
+  if not reuse then
+    if previous then previous.destroy() end
+    panel=player.gui.screen.add{type='frame',name='fc_machine_panel',direction='vertical'}
+    if location then panel.location=location else panel.auto_center=true end
+    local controls=panel.add{type='flow',name='fc_machine_controls',direction='horizontal'}
+    controls.add{type='button',name='fc_machine_close',caption='Close'}
+    controls.add{type='button',name='fc_machine_overview',caption='Factory overview'}
+    machine_label(panel,machine_sync(view),vm.palette.idle,'fc_machine_sync')
+    local appearance=panel.add{type='flow',name='fc_machine_appearance',direction='horizontal'}
+    appearance.add{type='label',caption='Machine skin'}
+    local filters={}
+    for _,name in ipairs(skins.choices()) do filters[#filters+1]={filter='name',name=name} end
+    appearance.add{type='choose-elem-button',name='fc_machine_skin',elem_type='entity',elem_filters=filters,
+      tooltip='Choose an appearance from the base game or installed mods.'}
+    appearance.add{type='button',name='fc_machine_default',caption='Reset to default'}
+    machine_label(panel,'',vm.palette.attention,'fc_machine_error')
+  end
+  panel.caption=center.display_name..(ref.op_id and (' — WO '..string.format('%d',ref.op_id)) or '')
+  panel.tags={machine=ref,revision=view.revision}
+  panel.fc_machine_sync.caption=machine_sync(view)
+  local chooser=panel.fc_machine_appearance.fc_machine_skin
+  if chooser.elem_value~=skin then chooser.elem_value=skin end
+  panel.fc_machine_error.caption=''
+  local scroll=panel.fc_machine_details or panel.add{type='scroll-pane',name='fc_machine_details'}
+  scroll.clear();scroll.style.maximal_height=450;scroll.style.minimal_width=600
+  local function detail_row(row)
+    local order,op=row.order,row.operation
+    machine_label(scroll,order.reference..' — '..order.product..' | MO '..order.state_label)
+    machine_label(scroll,'WO '..string.format('%d',op.id)..' | '..op.state_label,vm.palette.ready)
+    machine_label(scroll,op.quantity_label)
+    if op.quantity_ratio then
+      local bar=scroll.add{type='progressbar',value=math.max(0,math.min(1,op.quantity_ratio))};bar.style.width=250
+    end
+    machine_label(scroll,'Operation time: '..(op.running_label or production.timing(op)),vm.palette.ready,
+      'fc_machine_timer_'..string.format('%d',op.id)).tags={fc_timer_id=op.id}
+    machine_label(scroll,'Predecessors: '..op.dependency_label,vm.palette.idle)
+    machine_label(scroll,'MO material evidence',vm.palette.attention)
+    for _,material in ipairs(order.materials) do machine_label(scroll,material.label,material.warning and vm.palette.attention or vm.palette.idle) end
+    machine_label(scroll,'Odoo record URL — select and copy into your browser')
+    local field=scroll.add{type='text-box',name='fc_machine_record_'..string.format('%d',op.id),text=order.record_url,tags={fc_record=true}}
+    field.read_only=true;field.word_wrap=false;field.style.width=550;field.style.height=36
+  end
+  if detail then detail_row(detail)
+  else
+    machine_label(scroll,'Center '..center.raw_state_label..' | Running '..center.running_count..' | Ready '..center.ready_count)
+    machine_label(scroll,'Dependency waiting '..center.waiting_count..' | MO material warnings '..center.material_warning_count)
+    if #center.orders==0 then machine_label(scroll,'No active orders',vm.palette.idle) end
+    for _,row in ipairs(center.orders) do detail_row(row) end
+  end
+  if not reuse then player.opened=panel end
+  return panel
+end
+local function update_timers(panel,view)
+  local timers={}
+  for _,order in pairs(view.orders) do for _,op in ipairs(order.operations) do timers[op.id]=op end end
+  local function visit(parent)
+    for _,child in pairs(parent.children) do
+      local key=child.tags and child.tags.fc_timer_id
+      if key and timers[key] then child.caption='Operation time: '..(timers[key].running_label or production.timing(timers[key])) end
+      visit(child)
+    end
+  end
+  visit(panel)
+end
 function M.show(player,view,center_id)
+  if player.gui.screen.fc_machine_panel then player.gui.screen.fc_machine_panel.destroy() end
   local previous=player.gui.screen.fc_panel
   local location=previous and previous.valid and previous.location or nil
   if previous then previous.destroy() end
@@ -94,7 +184,21 @@ function M.show(player,view,center_id)
   label(scroll,'Elapsed and expected time come from Odoo. Remaining time is an estimate. Observed running uses unpaused game time while synchronization is healthy.',vm.palette.idle)
   return panel
 end
-function M.update(player,view)
+function M.update(player,view,owned)
+  local machine_panel=player.gui.screen.fc_machine_panel
+  if machine_panel and machine_panel.valid then
+    local ref=machine_panel.tags.machine
+    if not view.centers[ref.center_id] or (ref.op_id and not machine_order(view,ref)) or (owned and not surface.machine(owned,ref)) then
+      machine_panel.destroy()
+    elseif machine_panel.tags.revision~=view.revision then
+      local skin=machine_panel.fc_machine_appearance.fc_machine_skin.elem_value
+      if owned then skin=skins.saved(owned,ref.op_id and 'production' or 'station')[ref.op_id or ref.center_id] end
+      M.show_machine(player,view,ref,skin)
+    else
+      machine_panel.fc_machine_sync.caption=machine_sync(view)
+      update_timers(machine_panel,view)
+    end
+  end
   local panel=player.gui.screen.fc_panel
   if not panel or not panel.valid then return end
   if panel.tags.revision~=view.revision and not panel.tags.confirming_repair then M.show(player,view,panel.tags.center_id);return end
@@ -102,22 +206,19 @@ function M.update(player,view)
   panel.fc_controls.fc_jump.enabled=view.surface_available==true
   panel.fc_warnings.clear()
   for _,warning in ipairs(view.warnings) do label(panel.fc_warnings,'Data/display warning: '..warning,vm.palette.attention) end
-  local timers={}
-  for _,order in pairs(view.orders) do for _,op in ipairs(order.operations) do timers[op.id]=op end end
-  local function update_timers(parent)
-    for _,child in pairs(parent.children) do
-      local key=child.tags and child.tags.fc_timer_id
-      if key and timers[key] then child.caption='Operation time: '..(timers[key].running_label or production.timing(timers[key])) end
-      update_timers(child)
-    end
-  end
-  update_timers(panel)
+  update_timers(panel,view)
 end
 function M.handle(player,event,view)
   local e=event.element
   if not e or not e.valid then return end
   local panel=player.gui.screen.fc_panel
-  if e.name=='fc_open' then M.show(player,view,view.center_ids[1])
+  local machine_panel=player.gui.screen.fc_machine_panel
+  if e.name=='fc_machine_close' then if machine_panel then machine_panel.destroy() end
+  elseif e.name=='fc_machine_overview' and machine_panel then M.show(player,view,machine_panel.tags.machine.center_id)
+  elseif machine_panel and ((e.name=='fc_machine_skin' and e==machine_panel.fc_machine_appearance.fc_machine_skin)
+    or (e.name=='fc_machine_default' and e==machine_panel.fc_machine_appearance.fc_machine_default)) then
+    return {action='skin',machine=machine_panel.tags.machine,skin=e.name=='fc_machine_skin' and e.elem_value or nil}
+  elseif e.name=='fc_open' then M.show(player,view,view.center_ids[1])
   elseif e.name=='fc_close' then if panel then panel.destroy() end
   elseif e.tags and e.tags.fc_center_id then M.show(player,view,e.tags.fc_center_id)
   elseif e.tags and e.tags.fc_record then e.focus();e.select_all()

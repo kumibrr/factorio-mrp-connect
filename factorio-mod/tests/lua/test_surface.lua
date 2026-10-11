@@ -1,5 +1,58 @@
 local f=require('view_fixtures')
 return {
+  failed_skin_swap_keeps_original_contents_and_saved_choice=function()
+    local engine=f.engine();prototypes.entity['fc-skin-production-stone-furnace']={}
+    local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy());local owned={};local surface=f.module('surface')
+    surface.reconcile(v,f.module('layout').reconcile(s.work_centers,{}),owned)
+    local machine=owned.production[6].machines[1];local original=machine.entity
+    original.get_inventory(defines.inventory.assembling_machine_input).insert{name='fc-raw-material',count=4}
+    local create=engine.create_entity;local candidate
+    engine.create_entity=function(spec)
+      candidate=create(spec);local inventory=candidate.get_inventory(defines.inventory.assembling_machine_input)
+      inventory.insert=function() return 0 end
+      return candidate
+    end
+    local ok,err=surface.set_skin(v,owned,{center_id=2,mo_id=6,op_id=14},'stone-furnace')
+    assert(not ok and type(err)=='string' and original.valid and machine.entity==original and not candidate.valid)
+    assert(original.get_inventory(defines.inventory.assembling_machine_input).get_item_count('fc-raw-material')==4)
+    assert(not owned.machine_skins.production[14])
+  end,
+  changing_skin_preserves_inventories_release_ledger_and_other_machines=function()
+    f.engine();prototypes={entity={['fc-skin-production-stone-furnace']={}}}
+    local s=f.snapshot();s.work_orders[14].output_qty=3
+    local v=f.module('view_model').build(s,f.healthy());local slots=f.module('layout').reconcile(s.work_centers,{})
+    local owned={};local surface=f.module('surface');surface.reconcile(v,slots,owned)
+    local lane=owned.production[6];local machine=lane.machines[1];local original=machine.entity
+    local other=lane.machines[2].entity;machine.released=3
+    original.get_inventory(defines.inventory.assembling_machine_input).insert{name='fc-raw-material',count=4}
+    original.get_inventory(defines.inventory.assembling_machine_output).insert{name='fc-workpiece',count=2}
+    local ref=surface.machine_for_entity(owned,original)
+    assert(ref.op_id==14 and ref.mo_id==6 and ref.center_id==2)
+    assert(surface.set_skin(v,owned,ref,'stone-furnace'))
+    assert(not original.valid and machine.entity.name=='fc-skin-production-stone-furnace')
+    assert(machine.entity.get_inventory(defines.inventory.assembling_machine_input).get_item_count('fc-raw-material')==4)
+    assert(machine.entity.get_inventory(defines.inventory.assembling_machine_output).get_item_count('fc-workpiece')==2)
+    assert(machine.released==3 and other.valid and lane.machines[2].entity==other)
+    surface.reconcile(v,slots,owned)
+    assert(owned.production[6]==lane and machine.released==3,'skin must not rebuild or reseed the lane')
+    assert(surface.set_skin(v,owned,ref,nil))
+    assert(machine.entity.name=='fc-production-assembly' and machine.released==3)
+  end,
+  skin_choices_survive_lane_rebuilds_and_missing_mods_fall_back=function()
+    f.engine();prototypes={entity={['fc-skin-production-modded-underground-belt-smelter']={}}}
+    local s=f.snapshot();local v=f.module('view_model').build(s,f.healthy());local slots=f.module('layout').reconcile(s.work_centers,{})
+    local owned={};local surface=f.module('surface');surface.reconcile(v,slots,owned)
+    local ref={center_id=2,mo_id=6,op_id=14}
+    assert(surface.set_skin(v,owned,ref,'modded-underground-belt-smelter'))
+    owned.production[6].machines[1].entity.destroy();surface.reconcile(v,slots,owned)
+    assert(owned.production[6].machines[1].entity.name=='fc-skin-production-modded-underground-belt-smelter')
+    for _,belt in ipairs(owned.production[6].belts) do
+      assert(belt.name=='transport-belt' or belt.name=='express-underground-belt','skin names must not classify machines as belts')
+    end
+    prototypes.entity={};owned.production[6].machines[1].entity.destroy();surface.reconcile(v,slots,owned)
+    assert(owned.production[6].machines[1].entity.name=='fc-production-assembly')
+    assert(not surface.set_skin(v,owned,ref,'not-a-machine'))
+  end,
   removed_operations_cannot_accumulate_observed_running_time=function()
     f.engine();local v=f.module('view_model').build(f.snapshot(),f.healthy())
     local m=f.module('surface');local owned={}
