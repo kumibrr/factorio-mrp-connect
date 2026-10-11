@@ -229,6 +229,19 @@ passed, including the mod-name regression that initially crashed the engine.
 The rebuilt package contains 24 runtime assets matching source byte-for-byte,
 with valid ZIP CRCs. Desktop GUI acceptance remains unexecuted.
 
+## Click-only machine panels — 2026-10-11
+
+Machine panels now open through a custom input linked to Factorio's normal
+`open-gui` control. There is no selected-entity hover handler. Lua regressions
+verify hovering opens nothing and cannot switch an open panel, clicking stations
+and skinned machines opens the correct panel, and unrelated entities, empty
+space or GUI clicks do not open machine panels. Picker changes and Escape still work.
+
+`./scripts/check lua`: 94 passed, 0 failed. `./scripts/check factorio` passed
+prototype/input registration, creation and two independent 12,001-tick save loads:
+`runtime/surface-smoke-quln06aa/report.json`. Headless checks do not execute
+desktop mouse input; the walkthrough records the remaining click acceptance.
+
 ## Passed
 
 | Command | Result | Elapsed wall time | Evidence |

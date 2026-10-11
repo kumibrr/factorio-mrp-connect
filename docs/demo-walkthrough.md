@@ -13,10 +13,11 @@ The initial states are:
 | Inspection | Four dependency-blocked orders | Completed/cancelled operations |
 | Packing | Four dependency-blocked orders | Completed/cancelled operations |
 
-Hover a station for its own work-center details. Hover a production machine for
+Click a station for its own work-center details. Click a production machine for
 only its manufacturing order and work order, including quantities, dependencies,
-material evidence and timing. The panel stays open when you move the pointer
-onto it; use **Close** or Escape to dismiss it. **Odoo factory** or **Factory
+material evidence and timing. Use your normal **Open entity GUI** control
+(left click by default). Hovering does not open or switch panels. Use **Close**
+or Escape to dismiss the panel. **Odoo factory** or **Factory
 overview** opens the full overview.
 
 Use **Machine skin** in the machine panel to choose an available appearance from
@@ -245,8 +246,10 @@ business data. It does not measure a new commit or verify seed invariants.
 1. Confirm ten products, two BOMs, four stations, eight MOs, 22 WOs, 14 posted
    pumps and the six-motor warning. Select every station and inspect idle,
    running, dependency-blocked and material-short records.
-   Hover two different Assembly machines and verify that each panel shows only
-   its own MO/WO. Move onto the panel and open **Machine skin**; keep the selector
+   Hover over Assembly machines and verify no menu opens. Click two different
+   Assembly machines and verify each panel shows only its own MO/WO. Hover another
+   machine and verify the open panel stays on the clicked machine.
+   Open **Machine skin**; keep the selector
    open through a source refresh. Choose a furnace and an installed-mod machine
    appearance, then reset one to default. Check inventories and release counts
    before/after, save/reload and verify each machine's choice. Repeat on the small

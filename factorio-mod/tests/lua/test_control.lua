@@ -32,11 +32,26 @@ local function recovery_rig(initial_snapshot)
   return p,state,events,tick,handshake,snapshot_frames,receive
 end
 return {
+  gui_clicks_with_a_selected_machine_do_not_open_or_retarget_machine_panels=function()
+    local p,state,events,tick=recovery_rig(f.snapshot());tick(1)
+    local owned=storage.factorio_connect_surface
+    p.selected=owned.production[6].machines[1].entity
+    events['fc-open-machine']{player_index=1,in_gui=true}
+    assert(not p.gui.screen.fc_machine_panel,'GUI clicks must not activate a selected world machine')
+    events['fc-open-machine']{player_index=1,in_gui=false}
+    local panel=p.gui.screen.fc_machine_panel;local details=panel.fc_machine_details.children[1]
+    p.selected=owned.production[7].machines[1].entity
+    events['fc-open-machine']{player_index=1,in_gui=true}
+    assert(panel.valid and panel==p.gui.screen.fc_machine_panel and panel.tags.machine.op_id==14)
+    assert(details.valid and details==panel.fc_machine_details.children[1],'GUI clicks must not rebuild open details')
+  end,
   opening_skin_picker_does_not_replace_machine_until_selection_changes=function()
     local p,state,events,tick=recovery_rig(f.snapshot());tick(1)
     prototypes.entity['fc-skin-production-stone-furnace']={}
     local machine=storage.factorio_connect_surface.production[6].machines[1]
-    p.selected=machine.entity;events[6]{player_index=1}
+    p.selected=machine.entity
+    assert(events['fc-open-machine'],'the machine click input must be registered')
+    events['fc-open-machine']{player_index=1}
     local panel=p.gui.screen.fc_machine_panel;local chooser=f.find(panel,'fc_machine_skin')
     events[4]{name=4,player_index=1,element=chooser}
     assert(panel.valid and machine.entity==p.selected,'clicking the picker must allow it to open')
@@ -46,18 +61,41 @@ return {
     local next=p.gui.screen.fc_machine_panel;events[8]{player_index=1,element=next}
     assert(not p.gui.screen.fc_machine_panel,'Escape should dismiss the machine panel')
   end,
-  hover_targets_only_owned_machines_and_leaving_allows_panel_interaction=function()
+  hovering_never_opens_or_changes_the_machine_panel=function()
     local p,state,events,tick=recovery_rig(f.snapshot());tick(1)
     p.selected=storage.factorio_connect_surface.production[6].machines[1].entity
-    events[6]{player_index=1}
-    assert(p.gui.screen.fc_machine_panel and not p.gui.screen.fc_panel)
-    assert(p.gui.screen.fc_machine_panel.tags.machine.op_id==14)
-    local panel=p.gui.screen.fc_machine_panel;p.selected=nil;events[6]{player_index=1}
-    assert(panel.valid,'moving the pointer into the panel must not close it')
-    p.selected=storage.factorio_connect_surface.production[7].machines[1].entity;events[6]{player_index=1}
+    if events[6] then events[6]{player_index=1} end
+    assert(not p.gui.screen.fc_machine_panel and not p.gui.screen.fc_panel,'hover must not open a menu')
+    assert(events['fc-open-machine'],'the machine click input must be registered')
+    events['fc-open-machine']{player_index=1}
+    local panel=p.gui.screen.fc_machine_panel
+    assert(panel and panel.tags.machine.op_id==14 and not p.gui.screen.fc_panel)
+    p.selected=storage.factorio_connect_surface.production[7].machines[1].entity
+    if events[6] then events[6]{player_index=1} end
+    assert(panel.valid and panel.tags.machine.op_id==14,'hover must not switch an open machine menu')
+    events['fc-open-machine']{player_index=1}
     assert(p.gui.screen.fc_machine_panel.tags.machine.op_id==17)
-    p.selected=storage.factorio_connect_surface.production[7].source;events[6]{player_index=1}
+    p.selected=storage.factorio_connect_surface.production[7].source;events['fc-open-machine']{player_index=1}
     assert(p.gui.screen.fc_machine_panel.tags.machine.op_id==17,'boxes must not masquerade as machines')
+    p.selected=nil;events['fc-open-machine']{player_index=1}
+    assert(p.gui.screen.fc_machine_panel.tags.machine.op_id==17)
+  end,
+  clicking_stations_and_skinned_machines_opens_their_own_panel=function()
+    local p,state,events,tick=recovery_rig(f.snapshot());tick(1)
+    assert(events['fc-open-machine'],'the machine click input must be registered')
+    local owned=storage.factorio_connect_surface
+    p.selected=owned.stations[2].entity;events['fc-open-machine']{player_index=1}
+    assert(p.gui.screen.fc_machine_panel.tags.machine.center_id==2 and not p.gui.screen.fc_machine_panel.tags.machine.op_id)
+    prototypes.entity['fc-skin-production-stone-furnace']={}
+    local view=require('scripts.view_model').build(state.get().snapshot,f.healthy())
+    assert(require('scripts.surface').set_skin(view,owned,{center_id=2,mo_id=6,op_id=14},'stone-furnace'))
+    p.selected=owned.production[6].machines[1].entity;events['fc-open-machine']{player_index=1}
+    assert(p.gui.screen.fc_machine_panel.tags.machine.op_id==14)
+    assert(f.find(p.gui.screen.fc_machine_panel,'fc_machine_skin').elem_value=='stone-furnace')
+    local panel=p.gui.screen.fc_machine_panel
+    p.selected=owned.surface.create_entity{name='steel-chest',position={x=1000,y=1000}}
+    events['fc-open-machine']{player_index=1}
+    assert(panel==p.gui.screen.fc_machine_panel and panel.valid,'unowned entities must not open a machine panel')
   end,
   lost_cache_same_uuid_requires_confirmed_local_repair_to_accept_lower_revision=function()
     local p,state,events,tick,handshake,frames,receive=recovery_rig()

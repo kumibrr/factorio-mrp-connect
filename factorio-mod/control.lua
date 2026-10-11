@@ -80,7 +80,8 @@ script.on_event(defines.events.on_player_created,function(event)
   local player=game.get_player(event.player_index)
   if player then gui.ensure_button(player) end
 end)
-script.on_event(defines.events.on_selected_entity_changed,function(event)
+script.on_event('fc-open-machine',function(event)
+  if event.in_gui then return end
   local player=game.get_player(event.player_index)
   if not player then return end
   local machine=surface.machine_for_entity(owned(),player.selected)

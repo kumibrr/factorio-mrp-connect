@@ -4,7 +4,7 @@ return {
     local p=f.player();local gui=f.module('gui');local v=f.module('view_model').build(f.snapshot(),f.healthy());v.revision=7
     gui.show_machine(p,v,{center_id=2,mo_id=6,op_id=14})
     local panel=p.gui.screen.fc_machine_panel;local text=f.texts(panel)
-    assert(not p.gui.screen.fc_panel,'hover must not open the global panel')
+    assert(not p.gui.screen.fc_panel,'opening a machine must not open the global panel')
     assert(text:find('WO 14',1,true) and text:find(v.orders[6].reference,1,true))
     assert(not text:find(v.orders[7].reference,1,true),'another machine order leaked into the panel')
     assert(not f.find(panel,'fc_center_3') and not text:find('Stock evidence',1,true))

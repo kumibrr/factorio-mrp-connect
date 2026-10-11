@@ -55,5 +55,5 @@ It checks station render handles survive replacement and
 the small Packing station retains its collision footprint. Both loads verify
 the saved production/station choices and entity identity. `report.json` records
 skin evidence for creation and both loads. The headless runner has no GUI player;
-Lua GUI tests simulate events, and desktop hover/selector acceptance remains in
+Lua GUI tests simulate click events, and desktop click/selector acceptance remains in
 the demo walkthrough.
